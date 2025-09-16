@@ -113,7 +113,7 @@ data class BasicInstance(
         lastLaunch = System.currentTimeMillis()
     }
 
-    fun onProcessExit(code: Int) {
+    fun onProcessExit(code: Int, exitByUser: Boolean) {
         MCSRLauncher.LOGGER.info("Exited instance: $id ($code)")
         FileUtils.deleteDirectory(this.getNativePath().toFile())
         InstanceManager.refreshInstanceList()
@@ -124,11 +124,13 @@ data class BasicInstance(
         if (code != 0) {
             val optionDialog = openOptionDialog()
             optionDialog.openTab(4)
-            val result = JOptionPane.showConfirmDialog(optionDialog, I18n.translate("message.upload_crash_log"), I18n.translate("text.warning"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
-            if (result == JOptionPane.YES_OPTION) {
-                val log = getGamePath().resolve("logs/latest.log").readText()
-                val crashLogDialog = InstanceCrashLogGui(null, log)
-                crashLogDialog.isVisible = true
+            if (!exitByUser) {
+                val result = JOptionPane.showConfirmDialog(optionDialog, I18n.translate("message.upload_crash_log"), I18n.translate("text.warning"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
+                if (result == JOptionPane.YES_OPTION) {
+                    val log = getGamePath().resolve("logs/latest.log").readText()
+                    val crashLogDialog = InstanceCrashLogGui(null, log)
+                    crashLogDialog.isVisible = true
+                }
             }
         }
     }

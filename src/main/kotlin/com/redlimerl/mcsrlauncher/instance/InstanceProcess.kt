@@ -34,6 +34,8 @@ class InstanceProcess(val instance: BasicInstance) {
 
     var process: Process? = null
         private set
+    private var exitByUser = false
+
     private var logArchive = StringBuilder()
     private var logChannel = Channel<String>(Channel.UNLIMITED)
     private var viewerUpdater: Job? = null
@@ -221,11 +223,12 @@ class InstanceProcess(val instance: BasicInstance) {
 
     private fun onExit(code: Int) {
         MCSRLauncher.GAME_PROCESSES.remove(this)
-        this.instance.onProcessExit(code)
+        this.instance.onProcessExit(code, exitByUser)
         this.logChannel.close()
     }
 
     fun exit() {
+        exitByUser = true
         process?.destroy()
     }
 
