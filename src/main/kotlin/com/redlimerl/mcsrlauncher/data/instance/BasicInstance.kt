@@ -122,8 +122,9 @@ data class BasicInstance(
         this.save()
 
         if (code != 0) {
-            openOptionDialog().openTab(4)
-            val result = JOptionPane.showConfirmDialog(null, I18n.translate("message.upload_crash_log"), I18n.translate("text.warning"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
+            val optionDialog = openOptionDialog()
+            optionDialog.openTab(4)
+            val result = JOptionPane.showConfirmDialog(optionDialog, I18n.translate("message.upload_crash_log"), I18n.translate("text.warning"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
             if (result == JOptionPane.YES_OPTION) {
                 val log = getGamePath().resolve("logs/latest.log").readText()
                 val crashLogDialog = InstanceCrashLogGui(null, log)
