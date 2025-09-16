@@ -1,19 +1,15 @@
 package com.redlimerl.mcsrlauncher.gui
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
-import com.redlimerl.mcsrlauncher.util.HttpUtils.makeRawRequest
+import com.redlimerl.mcsrlauncher.util.AnalysisUtils.analyzeLog
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
-import org.apache.hc.client5.http.classic.methods.HttpPost
-import org.apache.hc.client5.http.entity.UrlEncodedFormEntity
-import org.apache.hc.core5.http.message.BasicNameValuePair
 import java.awt.Desktop
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.awt.Window
 import java.awt.datatransfer.StringSelection
 import java.net.URI
-import java.nio.charset.StandardCharsets
 import javax.swing.JDialog
 import javax.swing.event.HyperlinkEvent
 
@@ -51,18 +47,12 @@ class LogSubmitGui(window: Window) : LogSubmitDialog(window) {
                 override fun work(dialog: JDialog) {
                     analyzeButton.isEnabled = false
                     statusLabel.text = I18n.translate("text.analyzing")
-                    val post = HttpPost("https://maskers.xyz/log-analysis/analyse")
-                    post.entity = UrlEncodedFormEntity(listOf(BasicNameValuePair("loglink", targetUrl!!)), StandardCharsets.UTF_8)
-                    val request = makeRawRequest(post, this)
-                    if (request.hasSuccess()) {
+                    targetUrl?.let { url ->
+                        val result = analyzeLog(url, this)
                         analyzeContextLabel.contentType = "text/html"
-                        val regex = Regex("<pre>(.*?)</pre>", RegexOption.DOT_MATCHES_ALL)
-                        val match = regex.find(request.result!!)
-                        analyzeContextLabel.text = "<html>${match?.groups?.get(1)?.value?.replace("<code>", "[")?.replace("</code>", "]")}</html>"
-                        minimumSize = Dimension(500, 300)
-                    } else {
-                        analyzeContextLabel.text += "\nFailed to analyze: ${request.code}"
+                        analyzeContextLabel.text = result
                     }
+                    minimumSize = Dimension(500, 300)
                     statusLabel.text = I18n.translate("text.analyzed")
                 }
             }.start()
