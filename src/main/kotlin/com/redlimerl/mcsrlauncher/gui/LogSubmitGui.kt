@@ -1,6 +1,7 @@
 package com.redlimerl.mcsrlauncher.gui
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
+import com.redlimerl.mcsrlauncher.gui.component.AnalysisEditorPane
 import com.redlimerl.mcsrlauncher.util.AnalysisUtils.analyzeLog
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
@@ -29,15 +30,7 @@ class LogSubmitGui(window: Window) : LogSubmitDialog(window) {
             }
         }
 
-        analyzeContextLabel.addHyperlinkListener {
-            if (it.eventType == HyperlinkEvent.EventType.ACTIVATED) {
-                try {
-                    Desktop.getDesktop().browse(URI(it.url.toString()))
-                } catch (ex: Exception) {
-                    MCSRLauncher.LOGGER.error("Failed to open: ${it.url}", ex)
-                }
-            }
-        }
+        AnalysisEditorPane.init(analyzeContextLabel)
 
         analyzeButton.isEnabled = false
         analyzeButton.addActionListener {
@@ -49,7 +42,6 @@ class LogSubmitGui(window: Window) : LogSubmitDialog(window) {
                     statusLabel.text = I18n.translate("text.analyzing")
                     targetUrl?.let { url ->
                         val result = analyzeLog(url, this)
-                        analyzeContextLabel.contentType = "text/html"
                         analyzeContextLabel.text = result
                     }
                     minimumSize = Dimension(500, 300)
