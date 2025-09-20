@@ -5,7 +5,7 @@ import com.redlimerl.mcsrlauncher.gui.component.AnalysisEditorPane
 import com.redlimerl.mcsrlauncher.util.AnalysisUtils.analyzeLog
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
-import java.awt.Desktop
+import com.redlimerl.mcsrlauncher.util.OSUtils
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.awt.Window
@@ -26,7 +26,7 @@ class LogSubmitGui(window: Window) : LogSubmitDialog(window) {
         openButton.addActionListener {
             targetUrl?.let {
                 Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(it), null)
-                Desktop.getDesktop().browse(URI.create(it))
+                OSUtils.openURI(URI.create(it))
             }
         }
 

@@ -13,11 +13,11 @@ import com.redlimerl.mcsrlauncher.gui.components.AbstractGameVersionsPanel
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
+import com.redlimerl.mcsrlauncher.util.OSUtils
 import com.redlimerl.mcsrlauncher.util.SpeedrunUtils
 import com.redlimerl.mcsrlauncher.util.SwingUtils
 import io.github.z4kn4fein.semver.toVersion
 import java.awt.BorderLayout
-import java.awt.Desktop
 import java.net.URI
 import javax.swing.*
 import javax.swing.event.DocumentEvent
@@ -297,7 +297,7 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
 
     private fun initMCSRRankedComponents() {
         mcsrRankedHelpButton.addActionListener {
-            Desktop.getDesktop().browse(URI.create("https://mcsrranked.com/"))
+            OSUtils.openURI(URI.create("https://mcsrranked.com/"))
         }
 
         MCSRRankedPackType.entries.forEach {
