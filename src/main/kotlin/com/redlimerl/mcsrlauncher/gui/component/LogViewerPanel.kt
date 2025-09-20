@@ -2,6 +2,7 @@ package com.redlimerl.mcsrlauncher.gui.component
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
+import com.redlimerl.mcsrlauncher.data.launcher.LogMessage
 import com.redlimerl.mcsrlauncher.gui.LogSubmitGui
 import com.redlimerl.mcsrlauncher.gui.components.AbstractLogViewerPanel
 import com.redlimerl.mcsrlauncher.util.HttpUtils.makeJsonRequest
@@ -144,11 +145,11 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         }
     }
 
-    fun appendString(textPane: JTextPane, message: String, multipleLines: Boolean = false) {
+    fun appendString(textPane: JTextPane, message: LogMessage, multipleLines: Boolean = false) {
         val doc: StyledDocument = textPane.styledDocument
         val style = SimpleAttributeSet()
 
-        val strings = if (multipleLines) message.lines() else listOf(message)
+        val strings = if (multipleLines) message.text.lines() else listOf(message.text)
         for (string in strings) {
             if (string.isEmpty()) continue
             when {
@@ -243,7 +244,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
                 fileLogPane.text = ""
                 text.lines().forEach {
                     if (!it.contains("[DEBUG]") || enabledDebug()) {
-                        appendString(fileLogPane, it + "\n")
+                        appendString(fileLogPane, LogMessage(it + "\n"))
                     }
                 }
                 fileLogPane.caretPosition = 0

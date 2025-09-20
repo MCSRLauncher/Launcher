@@ -3,6 +3,7 @@ package com.redlimerl.mcsrlauncher.instance
 import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
+import com.redlimerl.mcsrlauncher.data.launcher.LogMessage
 import com.redlimerl.mcsrlauncher.data.meta.LauncherTrait
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.FabricIntermediaryMetaFile
@@ -37,7 +38,7 @@ class InstanceProcess(val instance: BasicInstance) {
     private var exitByUser = false
 
     private var logArchive = StringBuilder()
-    private var logChannel = Channel<String>(Channel.UNLIMITED)
+    private var logChannel = Channel<LogMessage>(Channel.UNLIMITED)
     private var viewerUpdater: Job? = null
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -187,7 +188,7 @@ class InstanceProcess(val instance: BasicInstance) {
             launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
                     lines.forEach { line ->
-                        logChannel.send(line + "\n")
+                        logChannel.send(LogMessage(line + "\n"))
                     }
                 }
             }
@@ -198,21 +199,23 @@ class InstanceProcess(val instance: BasicInstance) {
 
             val javaArch = if (javaContainer.arch.contains("64")) "x64" else "x86"
 
-            logChannel.send("MCSR Launcher version: ${MCSRLauncher.APP_VERSION}\n")
-            logChannel.send("Minecraft folder: ${instance.getGamePath().absolutePathString()}\n")
-            logChannel.send("Java path: ${javaContainer.path}\n")
-            logChannel.send("Java version is: ${javaContainer.version} using $javaArch architecture from ${javaContainer.vendor}\n")
-            logChannel.send("Java arguments are: ${arguments.joinToString(" ")}\n")
-            logChannel.send("Main Class is: $mainClass\n")
-            logChannel.send("Mods:\n")
+            logChannel.send(LogMessage("MCSR Launcher version: ${MCSRLauncher.APP_VERSION}\n\n\n", true))
+            logChannel.send(LogMessage("Minecraft folder is:\n${instance.getGamePath().absolutePathString()}\n\n\n", true))
+            logChannel.send(LogMessage("Java path is:\n${javaContainer.path}\n\n\n", true))
+            logChannel.send(LogMessage("Java is version: ${javaContainer.version} using $javaArch architecture from ${javaContainer.vendor}\n\n\n", true))
+            logChannel.send(LogMessage("Java arguments are:\n${arguments.joinToString(" ")}\n\n\n", true))
+            logChannel.send(LogMessage("Main Class:\n$mainClass\n\n\n", true))
+            logChannel.send(LogMessage("Mods:\n", true))
             for (mod in instance.getMods()) {
                 val status = if (mod.isEnabled) "✅" else "❌"
                 val message = "   [$status] ${mod.file.name}${if (!mod.isEnabled) " (disabled)" else ""}"
-                logChannel.send(message + "\n")
+                logChannel.send(LogMessage(message + "\n", true))
             }
 
+            logChannel.send(LogMessage("\n", true))
+
             val exitCode = process!!.waitFor()
-            logChannel.send("\nProcess exited with exit code $exitCode")
+            logChannel.send(LogMessage("\nProcess exited with exit code $exitCode", true))
             Thread.sleep(2000L)
             onExit(exitCode)
         }
@@ -226,7 +229,7 @@ class InstanceProcess(val instance: BasicInstance) {
             SwingUtilities.invokeLater {
                 logViewer.updateLogFiles()
                 logViewer.liveLogPane.text = ""
-                logViewer.appendString(logViewer.liveLogPane, logArchive.toString(), true)
+                logViewer.appendString(logViewer.liveLogPane, LogMessage(logArchive.toString()), true)
             }
             for (line in logChannel) {
                 SwingUtilities.invokeLater {

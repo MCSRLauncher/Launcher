@@ -1,5 +1,6 @@
 package com.redlimerl.mcsrlauncher.launcher
 
+import com.redlimerl.mcsrlauncher.data.launcher.LogMessage
 import com.redlimerl.mcsrlauncher.gui.component.LogViewerPanel
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -32,13 +33,13 @@ class LauncherLogAppender(private val layout: PatternLayout)
             SwingUtilities.invokeLater {
                 logArchive.lines().forEach {
                     if (!it.contains("[DEBUG]") || logViewer.enabledDebug())
-                        logViewer.appendString(logViewer.liveLogPane, it)
+                        logViewer.appendString(logViewer.liveLogPane, LogMessage(it))
                 }
             }
             for (line in logChannel) {
                 SwingUtilities.invokeLater {
                     if (!line.contains("[DEBUG]") || logViewer.enabledDebug()) {
-                        logViewer.appendString(logViewer.liveLogPane, line)
+                        logViewer.appendString(logViewer.liveLogPane, LogMessage(line))
                         logViewer.onLiveUpdate()
                     }
                     logArchive.append(line)
