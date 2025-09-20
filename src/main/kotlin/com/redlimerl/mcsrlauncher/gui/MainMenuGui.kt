@@ -9,6 +9,7 @@ import com.redlimerl.mcsrlauncher.launcher.AccountManager
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
+import com.redlimerl.mcsrlauncher.util.OSUtils
 import com.redlimerl.mcsrlauncher.util.SwingUtils
 import net.miginfocom.swing.MigLayout
 import java.awt.*
@@ -78,17 +79,17 @@ class MainMenuGui : MainForm() {
 
         initHeaderButton(discordButton)
         discordButton.addActionListener {
-            Desktop.getDesktop().browse(URI.create("https://mcsrlauncher.github.io/discord"))
+            OSUtils.openURI(URI.create("https://mcsrlauncher.github.io/discord"))
         }
 
         initHeaderButton(patreonButton)
         patreonButton.addActionListener {
-            Desktop.getDesktop().browse(URI.create("https://mcsrlauncher.github.io/patreon"))
+            OSUtils.openURI(URI.create("https://mcsrlauncher.github.io/patreon"))
         }
 
         initHeaderButton(githubButton)
         githubButton.addActionListener {
-            Desktop.getDesktop().browse(URI.create("https://github.com/MCSRLauncher/Launcher"))
+            OSUtils.openURI(URI.create("https://github.com/MCSRLauncher/Launcher"))
         }
     }
 

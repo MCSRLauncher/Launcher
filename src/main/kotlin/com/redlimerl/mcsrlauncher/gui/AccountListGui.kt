@@ -10,9 +10,9 @@ import com.redlimerl.mcsrlauncher.gui.component.AccountListComponent
 import com.redlimerl.mcsrlauncher.launcher.AccountManager
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
+import com.redlimerl.mcsrlauncher.util.OSUtils
 import com.redlimerl.mcsrlauncher.util.SwingUtils
 import java.awt.BorderLayout
-import java.awt.Desktop
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
@@ -53,7 +53,7 @@ class AccountListGui(parent: JFrame) : AccountListDialog() {
 
                 openPageButton.addActionListener {
                     Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(deviceCode.userCode), null)
-                    Desktop.getDesktop().browse(URI.create(deviceCode.verificationUrl))
+                    OSUtils.openURI(URI.create(deviceCode.verificationUrl))
                 }
                 cancelButton.addActionListener { this.dialog.dispose() }
 

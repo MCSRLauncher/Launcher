@@ -4,6 +4,7 @@ import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.map.MinecraftMapMeta
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
+import com.redlimerl.mcsrlauncher.util.OSUtils
 import com.redlimerl.mcsrlauncher.util.SwingUtils
 import java.awt.*
 import java.net.URI
@@ -61,7 +62,7 @@ class MapBrowserGui(window: Window, title: String, maps: List<MinecraftMapMeta>,
             if (map.sources != null) {
                 val sourceButton = JButton("Source")
                 sourceButton.addActionListener {
-                    Desktop.getDesktop().browse(URI.create(map.sources))
+                    OSUtils.openURI(URI.create(map.sources))
                 }
                 buttonPanel.add(sourceButton)
             }
