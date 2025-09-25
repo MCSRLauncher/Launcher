@@ -11,6 +11,7 @@ class JavaContainer(val path: Path) {
     val vendor: String
     val version: String
     val majorVersion: Int
+    val arch: String
 
     companion object {
         fun getVersionLists(javaPath: String): List<String> {
@@ -31,6 +32,7 @@ class JavaContainer(val path: Path) {
     init {
         var possibleVendor: String? = null
         var possibleVersion: String? = null
+        var possibleArch: String? = null
 
         val releaseFile = path.parent.parent.resolve("release").toFile()
         if (releaseFile.exists()) {
@@ -40,12 +42,13 @@ class JavaContainer(val path: Path) {
 
                 possibleVendor = properties.getProperty("IMPLEMENTOR")?.replace("\"", "") ?: "Unknown"
                 possibleVersion = properties.getProperty("JAVA_VERSION")?.replace("\"", "") ?: "Unknown Version"
+                possibleArch = properties.getProperty("OS_ARCH")?.replace("\"", "") ?: "Unknown Architecture"
             } catch (e: Exception) {
                 MCSRLauncher.LOGGER.error("Failed to find java information", e)
             }
         }
 
-        if (possibleVersion == null || possibleVendor == null) {
+        if (possibleVersion == null || possibleVendor == null || possibleArch == null) {
             val stderrLines = getVersionLists(this.getJavaRuntimePath())
 
             val versionLine = stderrLines.firstOrNull {
@@ -66,11 +69,18 @@ class JavaContainer(val path: Path) {
                 vendorLine.contains("IBM", ignoreCase = true) -> "IBM"
                 else -> vendorLine.take(64)
             }
+
+            val archLine = stderrLines.drop(2).joinToString(" ")
+            possibleArch = when {
+                archLine.contains("64-Bit", ignoreCase = true) -> "64"
+                else -> "32"
+            }
         }
 
         this.version = possibleVersion
         this.vendor = possibleVendor
         this.majorVersion = this.version.split(".").first().toInt().let { if (it == 1) this.version.split(".")[1].toInt() else it }
+        this.arch = possibleArch
     }
 
     private fun getJavaRuntimePath(): String {

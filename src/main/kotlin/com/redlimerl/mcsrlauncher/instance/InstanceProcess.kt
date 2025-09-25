@@ -36,7 +36,7 @@ class InstanceProcess(val instance: BasicInstance) {
         private set
     private var exitByUser = false
 
-    private var logArchive = StringBuilder()
+    private var logArchive = mutableListOf<String>()
     private var logChannel = Channel<String>(Channel.UNLIMITED)
     private var viewerUpdater: Job? = null
 
@@ -195,7 +195,26 @@ class InstanceProcess(val instance: BasicInstance) {
             this@InstanceProcess.process = process
             MCSRLauncher.GAME_PROCESSES.add(this@InstanceProcess)
             instance.onLaunch()
+
+            val javaArch = if (javaContainer.arch.contains("64")) "x64" else "x86"
+
+            logChannel.send("${MCSRLauncher.APP_NAME} version: ${MCSRLauncher.APP_VERSION}\n\n\n")
+            logChannel.send("Minecraft folder is:\n${instance.getGamePath().absolutePathString()}\n\n\n")
+            logChannel.send("Java path is:\n${javaContainer.path}\n\n\n")
+            logChannel.send("Java is version: ${javaContainer.version} using $javaArch architecture from ${javaContainer.vendor}\n\n\n")
+            logChannel.send("Java arguments are:\n${arguments.joinToString(" ")}\n\n\n")
+            logChannel.send("Main Class:\n$mainClass\n\n\n")
+            logChannel.send("Mods:\n")
+            for (mod in instance.getMods()) {
+                val status = if (mod.isEnabled) "✅" else "❌"
+                val message = "   [$status] ${mod.file.name}${if (!mod.isEnabled) " (disabled)" else ""}"
+                logChannel.send(message + "\n")
+            }
+
+            logChannel.send("\n")
+
             val exitCode = process!!.waitFor()
+            logChannel.send("\nProcess exited with exit code $exitCode")
             Thread.sleep(2000L)
             onExit(exitCode)
         }
@@ -209,12 +228,12 @@ class InstanceProcess(val instance: BasicInstance) {
             SwingUtilities.invokeLater {
                 logViewer.updateLogFiles()
                 logViewer.liveLogPane.text = ""
-                logViewer.appendString(logViewer.liveLogPane, logArchive.toString(), true)
+                logArchive.forEach { logViewer.appendString(logViewer.liveLogPane, it) }
             }
             for (line in logChannel) {
                 SwingUtilities.invokeLater {
                     logViewer.appendString(logViewer.liveLogPane, line)
-                    logArchive.append(line)
+                    logArchive += line
                     logViewer.onLiveUpdate()
                 }
             }
