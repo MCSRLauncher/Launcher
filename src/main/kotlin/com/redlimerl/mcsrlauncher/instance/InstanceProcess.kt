@@ -198,7 +198,7 @@ class InstanceProcess(val instance: BasicInstance) {
 
             val javaArch = if (javaContainer.arch.contains("64")) "x64" else "x86"
 
-            logChannel.send("MCSR Launcher version: ${MCSRLauncher.APP_VERSION}\n\n\n")
+            logChannel.send("${MCSRLauncher.APP_NAME} version: ${MCSRLauncher.APP_VERSION}\n\n\n")
             logChannel.send("Minecraft folder is:\n${instance.getGamePath().absolutePathString()}\n\n\n")
             logChannel.send("Java path is:\n${javaContainer.path}\n\n\n")
             logChannel.send("Java is version: ${javaContainer.version} using $javaArch architecture from ${javaContainer.vendor}\n\n\n")
