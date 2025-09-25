@@ -57,7 +57,7 @@ data class GameLibrary(
         val mainJarAsset = this.downloads.artifact
         if (mainJarAsset != null) list.add(this.getPath())
 
-        val classifierKey = this.natives[this.natives.keys.findLast { it.isOn() }]
+        val classifierKey = this.natives[this.natives.keys.filter { it.isOn() }.maxByOrNull { it.getLevel() }]
         if (classifierKey != null) {
             val nativeLibrary = this.downloads.classifiers[classifierKey.replace("\${arch}", DeviceArchitectureType.CURRENT_ARCHITECTURE.bit.toString())]!!
             list.add(nativeLibrary.getPathFrom(this))
