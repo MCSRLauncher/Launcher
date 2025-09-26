@@ -3,6 +3,7 @@ package com.redlimerl.mcsrlauncher.data.meta.mod
 import com.redlimerl.mcsrlauncher.data.device.RuntimeOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.IntermediaryType
+import com.redlimerl.mcsrlauncher.gui.component.SpeedrunModCheckBox
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -24,12 +25,17 @@ data class SpeedrunModMeta(
     }
 
     fun canDownload(instance: BasicInstance, checkObsolete: Boolean = true): Boolean {
-        return !this.obsolete && this.traits.all { trait ->
+        return (!checkObsolete || !this.obsolete) && this.traits.all { trait ->
             when (trait) {
                 SpeedrunModTrait.MAC -> RuntimeOSType.MAC_OS.isOn()
                 else -> true
             }
         } && this.versions.any { it.isAvailableVersion(instance, checkObsolete) }
+    }
+
+    fun createPanel(instance: BasicInstance, checkObsolete: Boolean): SpeedrunModCheckBox {
+        val version = this.versions.find { it.isAvailableVersion(instance, checkObsolete) }!!
+        return SpeedrunModCheckBox(this, version)
     }
 }
 

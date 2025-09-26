@@ -173,7 +173,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
 
     private fun initModsTab() {
         manageSpeedrunModsButton.addActionListener {
-            ManageSpeedrunModsGui(this, instance, false) {
+            SpeedrunModsManageGui(this, instance, false) {
                 updateMods()
             }
         }

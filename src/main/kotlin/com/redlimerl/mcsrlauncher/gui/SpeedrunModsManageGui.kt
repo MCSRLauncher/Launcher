@@ -10,7 +10,7 @@ import java.awt.Dimension
 import javax.swing.JDialog
 import javax.swing.JOptionPane
 
-class ManageSpeedrunModsGui(parent: JDialog, val instance: BasicInstance, isNew: Boolean, val updater: () -> Unit) : ManageSpeedrunModsDialog(parent) {
+class SpeedrunModsManageGui(parent: JDialog, val instance: BasicInstance, isNew: Boolean, val updater: () -> Unit) : SpeedrunModsManageDialog(parent) {
 
     init {
         title = I18n.translate("text.manage_speedrun_mods")
@@ -27,15 +27,15 @@ class ManageSpeedrunModsGui(parent: JDialog, val instance: BasicInstance, isNew:
 
         accessibilityModsCheckBox.addActionListener {
             if (accessibilityModsCheckBox.isSelected) {
-                JOptionPane.showMessageDialog(this@ManageSpeedrunModsGui, I18n.translate("message.warning.include_accessibility_mods"), I18n.translate("text.warning"), JOptionPane.WARNING_MESSAGE)
+                JOptionPane.showMessageDialog(this@SpeedrunModsManageGui, I18n.translate("message.warning.include_accessibility_mods"), I18n.translate("text.warning"), JOptionPane.WARNING_MESSAGE)
             }
         }
 
         applyButton.addActionListener {
-            object : LauncherWorker(this@ManageSpeedrunModsGui, I18n.translate("message.loading"), I18n.translate("text.download.assets").plus("...")) {
+            object : LauncherWorker(this@SpeedrunModsManageGui, I18n.translate("message.loading"), I18n.translate("text.download.assets").plus("...")) {
                 override fun work(dialog: JDialog) {
                     instance.installRecommendedSpeedrunMods(this, SpeedrunModMeta.VERIFIED_MODS, categoryComboBox.getItemAt(categoryComboBox.selectedIndex), downloadTypeComboBox.getItemAt(downloadTypeComboBox.selectedIndex), accessibilityModsCheckBox.isSelected)
-                    this@ManageSpeedrunModsGui.dispose()
+                    this@SpeedrunModsManageGui.dispose()
                     updater()
                 }
 
@@ -43,6 +43,11 @@ class ManageSpeedrunModsGui(parent: JDialog, val instance: BasicInstance, isNew:
                     updater()
                 }
             }.showDialog().start()
+        }
+
+        browseButton.addActionListener {
+            this.dispose()
+            SpeedrunModsBrowseGui(parent, instance)
         }
 
         cancelButton.addActionListener { this.dispose() }
