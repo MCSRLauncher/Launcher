@@ -12,7 +12,7 @@
   <restartOnCrash>false</restartOnCrash>
   <icon>..\..\src\main\resources\icons\launcher\icon.ico</icon>
   <jre>
-    <path>%JAVA_HOME%;%PATH%;jre</path>
+    <path>jre;%JAVA_HOME%;%PATH%</path>
     <requiresJdk>false</requiresJdk>
     <requires64Bit>true</requires64Bit>
     <minVersion>17</minVersion>
