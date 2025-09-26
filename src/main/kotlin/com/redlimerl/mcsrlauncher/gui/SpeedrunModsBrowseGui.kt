@@ -64,6 +64,8 @@ class SpeedrunModsBrowseGui(parent: Window, private val instance: BasicInstance)
         }
 
         applyButton.addActionListener {
+            if (loadedMods.none { it.checkBox.isSelected }) return@addActionListener
+
             object : LauncherWorker(this@SpeedrunModsBrowseGui, I18n.translate("message.loading"), I18n.translate("text.download.assets").plus("...")) {
                 override fun work(dialog: JDialog) {
                     instance.getModsPath().toFile().mkdirs()
