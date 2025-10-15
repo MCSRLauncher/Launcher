@@ -10,7 +10,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
 @Serializable(with = MetaUniqueIDSerializer::class)
-enum class MetaUniqueID(val value: String) {
+enum class MetaUniqueID(val value: String, val isJava: Boolean = false) {
     @SerialName("net.fabricmc.fabric-loader")
     FABRIC_LOADER("net.fabricmc.fabric-loader"),
 
@@ -21,16 +21,16 @@ enum class MetaUniqueID(val value: String) {
     MINECRAFT("net.minecraft"),
 
     @SerialName("net.minecraft.java")
-    MOJANG_JAVA("net.minecraft.java"),
+    MOJANG_JAVA("net.minecraft.java", true),
 
     @SerialName("com.azul.java")
-    AZUL_JAVA("com.azul.java"),
+    AZUL_JAVA("com.azul.java", true),
 
     @SerialName("net.adoptium.java")
-    ADOPTIUM_JAVA("net.adoptium.java"),
+    ADOPTIUM_JAVA("net.adoptium.java", true),
 
     @SerialName("org.graalvm.java")
-    GRAALVM_JAVA("org.graalvm.java"),
+    GRAALVM_JAVA("org.graalvm.java", true),
 
     @SerialName("org.lwjgl")
     LWJGL2("org.lwjgl"),
@@ -43,6 +43,9 @@ enum class MetaUniqueID(val value: String) {
 
     @SerialName("org.mcsr.maps.practice")
     PRACTICE_MAPS("org.mcsr.maps.practice"),
+
+    @SerialName("org.mcsr.programs")
+    SPEEDRUN_TOOLS("org.mcsr.programs"),
 
     @SerialName("unknown")
     UNKNOWN("unknown");
