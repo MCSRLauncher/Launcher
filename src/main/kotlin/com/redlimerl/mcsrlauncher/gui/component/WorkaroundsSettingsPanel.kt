@@ -15,12 +15,19 @@ class WorkaroundsSettingsPanel(
 
     private val glfPathField = JTextField()
     private val wrapperCommandField = JTextField()
-    private val useGlobalCheckBox = JCheckBox(I18n.translate("text.use_global_workarounds"))
+    private val useLauncherWorkarounds = JCheckBox(I18n.translate("text.use_launcher_workaround_settings"))
 
     init {
         layout = BorderLayout()
         val formPanel = JPanel(GridLayout(0, 2, 10, 10))
         formPanel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+
+        formPanel.add(useLauncherWorkarounds)
+        formPanel.add(Box.createGlue())
+
+        val separator = JSeparator()
+        formPanel.add(separator)
+        formPanel.add(Box.createGlue())
 
         formPanel.add(JLabel(I18n.translate("text.glfw_path") + ":"))
         formPanel.add(glfPathField)
@@ -28,21 +35,19 @@ class WorkaroundsSettingsPanel(
         formPanel.add(JLabel(I18n.translate("text.wrapper_command") + ":"))
         formPanel.add(wrapperCommandField)
 
-        formPanel.add(useGlobalCheckBox)
-        formPanel.add(Box.createGlue())
-
         add(formPanel, BorderLayout.NORTH)
 
         when (options) {
             is LauncherOptions -> {
                 glfPathField.text = options.customGLFWPath
                 wrapperCommandField.text = options.wrapperCommand
-                useGlobalCheckBox.isVisible = false
+                useLauncherWorkarounds.isVisible = false
             }
             is InstanceOptions -> {
                 glfPathField.text = options.customGLFWPath
                 wrapperCommandField.text = options.wrapperCommand
-                useGlobalCheckBox.isSelected = options.useLauncherWorkarounds
+                useLauncherWorkarounds.isSelected = options.useLauncherWorkarounds
+                applyLauncherSettings(options.useLauncherWorkarounds)
             }
         }
 
@@ -55,11 +60,12 @@ class WorkaroundsSettingsPanel(
                 is InstanceOptions -> {
                     options.customGLFWPath = glfPathField.text.trim()
                     options.wrapperCommand = wrapperCommandField.text.trim()
-                    options.useLauncherWorkarounds = useGlobalCheckBox.isSelected
+                    options.useLauncherWorkarounds = useLauncherWorkarounds.isSelected
                 }
             }
             onUpdate()
         }
+
         glfPathField.addActionListener { saveFields() }
         glfPathField.addFocusListener(object : java.awt.event.FocusAdapter() {
             override fun focusLost(e: java.awt.event.FocusEvent?) = saveFields()
@@ -68,11 +74,25 @@ class WorkaroundsSettingsPanel(
         wrapperCommandField.addFocusListener(object : java.awt.event.FocusAdapter() {
             override fun focusLost(e: java.awt.event.FocusEvent?) = saveFields()
         })
-        useGlobalCheckBox.addActionListener {
+        useLauncherWorkarounds.addActionListener {
             if (options is InstanceOptions) {
-                options.useLauncherWorkarounds = useGlobalCheckBox.isSelected
+                options.useLauncherWorkarounds = useLauncherWorkarounds.isSelected
+                applyLauncherSettings(options.useLauncherWorkarounds)
                 onUpdate()
             }
         }
+    }
+
+    private fun applyLauncherSettings(useLauncher: Boolean) {
+        if (options !is InstanceOptions) return
+
+        if (useLauncher) {
+            val launcher = LauncherOptions.load()
+            glfPathField.text = launcher.customGLFWPath
+            wrapperCommandField.text = launcher.wrapperCommand
+        }
+
+        glfPathField.isEnabled = !useLauncher
+        wrapperCommandField.isEnabled = !useLauncher
     }
 }
