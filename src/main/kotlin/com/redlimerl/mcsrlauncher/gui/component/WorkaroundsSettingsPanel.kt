@@ -5,7 +5,6 @@ import com.redlimerl.mcsrlauncher.data.instance.InstanceOptions
 import com.redlimerl.mcsrlauncher.util.I18n
 import javax.swing.*
 import java.awt.BorderLayout
-import java.awt.GridLayout
 import java.awt.GridBagLayout
 import java.awt.GridBagConstraints
 import java.awt.Insets
