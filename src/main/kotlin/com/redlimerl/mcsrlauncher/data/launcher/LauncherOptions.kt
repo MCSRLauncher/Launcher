@@ -22,7 +22,10 @@ data class LauncherOptions(
     override var maxMemory: Int = if (OSUtils.getTotalMemoryGB() > 15) 4096 else 2048,
     override var maximumResolution: Boolean = false,
     override var resolutionWidth: Int = 854,
-    override var resolutionHeight: Int = 480
+    override var resolutionHeight: Int = 480,
+
+    var customGLFWPath: String = "",
+    var wrapperCommand: String = ""
 ) : LauncherSharedOptions {
 
     companion object {

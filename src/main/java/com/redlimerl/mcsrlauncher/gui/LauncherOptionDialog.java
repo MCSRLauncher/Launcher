@@ -23,6 +23,7 @@ public class LauncherOptionDialog extends JDialog {
     public JScrollPane tabLauncherScrollPane;
     public JButton checkUpdateButton;
     public JScrollPane tabInterfaceScrollPane;
+    public JScrollPane tabWorkaroundsScrollPane;
     public JPanel launcherGameResolutionPane;
     public JPanel logPanel;
     public JSpinner concurrentDownloadsSpinner;
@@ -126,6 +127,13 @@ public class LauncherOptionDialog extends JDialog {
         final JPanel panel7 = new JPanel();
         panel7.setLayout(new GridLayoutManager(1, 1, new Insets(10, 10, 10, 10), -1, 15));
         tabInterfaceScrollPane.setViewportView(panel7);
+        tabWorkaroundsScrollPane = new JScrollPane();
+        tabWorkaroundsScrollPane.setHorizontalScrollBarPolicy(31);
+        settingsTabPane.addTab("text.workarounds", tabWorkaroundsScrollPane);
+        tabWorkaroundsScrollPane.setBorder(
+                BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(), null,
+                        TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.DEFAULT_POSITION, null, null)
+        );
         final JPanel panel8 = new JPanel();
         panel8.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
         settingsTabPane.addTab("text.log", panel8);

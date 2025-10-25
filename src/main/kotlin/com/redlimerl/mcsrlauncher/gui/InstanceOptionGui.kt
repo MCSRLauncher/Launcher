@@ -7,6 +7,7 @@ import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMapsMetaFile
 import com.redlimerl.mcsrlauncher.gui.component.InstanceGroupComboBox
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
+import com.redlimerl.mcsrlauncher.gui.component.WorkaroundsSettingsPanel
 import com.redlimerl.mcsrlauncher.instance.mod.ModData
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
@@ -53,6 +54,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
         initJavaTab()
         initLogTab()
         initToolsTab()
+        initWorkaroundsTab()
 
         I18n.translateGui(this)
         setLauncherLaunched(instance.isRunning())
@@ -375,5 +377,12 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
             instance.options.clearBeforeLaunch = autoWorldClearComboBox.isSelected
             instance.save()
         }
+    }
+
+    private fun initWorkaroundsTab() {
+        val workaroundsSettingsPanel = WorkaroundsSettingsPanel(this, instance.options, instance::save)
+        workaroundsPane.layout = BorderLayout()
+        workaroundsPane.add(workaroundsSettingsPanel, BorderLayout.CENTER)
+        SwingUtils.fasterScroll(workaroundsScrollPane)
     }
 }

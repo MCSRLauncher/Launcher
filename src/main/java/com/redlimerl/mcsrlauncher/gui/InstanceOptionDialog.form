@@ -390,6 +390,27 @@
                   </grid>
                 </children>
               </scrollpane>
+              <scrollpane id="a12f2" binding="workaroundsScrollPane">
+                <constraints>
+                  <tabbedpane title="text.workarounds"/>
+                </constraints>
+                <properties>
+                  <horizontalScrollBarPolicy value="31"/>
+                </properties>
+                <border type="empty"/>
+                <children>
+                  <grid id="a12f3" binding="workaroundsPane" layout-manager="GridLayoutManager"
+                        row-count="1" column-count="1"
+                        same-size-horizontally="false" same-size-vertically="false"
+                        hgap="-1" vgap="-1">
+                    <margin top="0" left="0" bottom="0" right="0"/>
+                    <constraints/>
+                    <properties/>
+                    <border type="none"/>
+                    <children/>
+                  </grid>
+                </children>
+              </scrollpane>
               <grid id="ef109" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
                 <margin top="0" left="0" bottom="0" right="0"/>
                 <constraints>

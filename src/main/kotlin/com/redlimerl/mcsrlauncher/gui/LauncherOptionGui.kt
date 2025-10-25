@@ -5,6 +5,7 @@ import com.redlimerl.mcsrlauncher.data.launcher.LauncherLanguage
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.LogViewerPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
+import com.redlimerl.mcsrlauncher.gui.component.WorkaroundsSettingsPanel
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
@@ -31,6 +32,7 @@ class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : Lau
         this.initLauncherTab()
         this.initJavaTab()
         this.initInterfaceTab()
+        this.initWorkaroundsTab()
         this.initLogTab()
 
         I18n.translateGui(this)
@@ -101,6 +103,13 @@ class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : Lau
     }
 
     private fun initInterfaceTab() {
+    }
+
+    private fun initWorkaroundsTab() {
+        val workaroundsSettingsPanel =
+            WorkaroundsSettingsPanel(this, MCSRLauncher.options, MCSRLauncher.options::save)
+        this.tabWorkaroundsScrollPane.setViewportView(workaroundsSettingsPanel)
+        SwingUtils.fasterScroll(this.tabWorkaroundsScrollPane)
     }
 
     private fun initLogTab() {

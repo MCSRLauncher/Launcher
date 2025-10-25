@@ -37,6 +37,8 @@ public class InstanceOptionDialog extends JDialog {
     public JButton browsePracticeMapsButton;
     public JButton worldClearButton;
     public JCheckBox autoWorldClearComboBox;
+    public JScrollPane workaroundsScrollPane;
+    public JPanel workaroundsPane;
 
     public InstanceOptionDialog(Window window) {
         super(window);
@@ -188,6 +190,23 @@ public class InstanceOptionDialog extends JDialog {
         javaSettingsPane = new JPanel();
         javaSettingsPane.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
         panel12.add(javaSettingsPane, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        workaroundsScrollPane = new JScrollPane();
+        workaroundsScrollPane.setHorizontalScrollBarPolicy(31);
+        optionTab.addTab("text.workarounds", workaroundsScrollPane);
+        workaroundsScrollPane.setBorder(
+                BorderFactory.createTitledBorder(
+                        BorderFactory.createEmptyBorder(),
+                        null,
+                        TitledBorder.DEFAULT_JUSTIFICATION,
+                        TitledBorder.DEFAULT_POSITION,
+                        null,
+                        null
+                )
+        );
+
+        workaroundsPane = new JPanel();
+        workaroundsPane.setLayout(new GridLayoutManager(1, 1, new Insets(10, 10, 10, 10), -1, -1));
+        workaroundsScrollPane.setViewportView(workaroundsPane);
         final JPanel panel13 = new JPanel();
         panel13.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
         optionTab.addTab("text.log", panel13);

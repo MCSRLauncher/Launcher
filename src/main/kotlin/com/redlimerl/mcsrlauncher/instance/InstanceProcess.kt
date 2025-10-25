@@ -29,7 +29,6 @@ import java.nio.file.Paths
 import javax.swing.SwingUtilities
 import kotlin.io.path.absolutePathString
 
-
 class InstanceProcess(val instance: BasicInstance) {
 
     var process: Process? = null
@@ -73,7 +72,27 @@ class InstanceProcess(val instance: BasicInstance) {
             "-Xmx${instance.options.getSharedJavaValue { it.maxMemory }}M"
         )
 
-        arguments.addAll(instance.options.getSharedJavaValue { it.jvmArguments }.split(" ").flatMap { it.split("\n") }.filter { it.isNotBlank() })
+        arguments.addAll(
+            instance.options.getSharedJavaValue { it.jvmArguments }
+                .split(" ")
+                .flatMap { it.split("\n") }
+                .filter { it.isNotBlank() }
+        )
+
+        val useGlobalWorkarounds = instance.options.useLauncherWorkarounds
+        val wrapperCmd = if (useGlobalWorkarounds)
+            MCSRLauncher.options.wrapperCommand
+        else
+            instance.options.wrapperCommand
+
+        val customGlfwPath = if (useGlobalWorkarounds)
+            MCSRLauncher.options.customGLFWPath
+        else
+            instance.options.customGLFWPath
+
+        if (customGlfwPath.isNotBlank()) {
+            arguments.add("-Dorg.lwjgl.glfw.libname=$customGlfwPath")
+        }
 
         val minecraftMetaFile = MetaManager.getVersionMeta<MinecraftMetaFile>(MetaUniqueID.MINECRAFT, instance.minecraftVersion)
             ?: throw IllegalStateException("${MetaUniqueID.MINECRAFT.value} version meta is not found")
@@ -154,10 +173,12 @@ class InstanceProcess(val instance: BasicInstance) {
             }
         }
         libraries.removeAll(nativeLibs.toSet())
-
         libraries.add(mainJar)
 
         val finalizeArgs = arrayListOf<String>()
+        if (wrapperCmd.isNotBlank()) {
+            finalizeArgs.addAll(wrapperCmd.split("\\s+".toRegex()))
+        }
         finalizeArgs.add(javaTarget)
         finalizeArgs.add("-Djava.library.path=${instance.getNativePath().absolutePathString()}")
         finalizeArgs.addAll(arguments)
@@ -250,5 +271,4 @@ class InstanceProcess(val instance: BasicInstance) {
         exitByUser = true
         process?.destroy()
     }
-
 }

@@ -11,6 +11,11 @@ data class InstanceOptions(
     var useLauncherResolutionOption: Boolean = true,
     var autoModUpdates: Boolean = false,
     var clearBeforeLaunch: Boolean = false,
+
+    var useLauncherWorkarounds: Boolean = true,
+    var customGLFWPath: String = "",
+    var wrapperCommand: String = "",
+
     override var minMemory: Int = 1024,
     override var maxMemory: Int = if (OSUtils.getTotalMemoryGB() > 15) 4096 else 2048,
     override var javaPath: String = "",
