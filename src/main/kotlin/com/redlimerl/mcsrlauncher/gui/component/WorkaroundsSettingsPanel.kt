@@ -6,6 +6,9 @@ import com.redlimerl.mcsrlauncher.util.I18n
 import javax.swing.*
 import java.awt.BorderLayout
 import java.awt.GridLayout
+import java.awt.GridBagLayout
+import java.awt.GridBagConstraints
+import java.awt.Insets
 
 class WorkaroundsSettingsPanel(
     parent: JDialog,
@@ -15,21 +18,41 @@ class WorkaroundsSettingsPanel(
 
     private val glfPathField = JTextField()
     private val wrapperCommandField = JTextField()
-    private val useGlobalCheckBox = JCheckBox(I18n.translate("text.use_global_workarounds"))
+    private val useLauncherWorkarounds = JCheckBox(I18n.translate("text.use_launcher_workaround_settings"))
 
     init {
         layout = BorderLayout()
-        val formPanel = JPanel(GridLayout(0, 2, 10, 10))
+        val formPanel = JPanel(GridBagLayout())
         formPanel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
 
-        formPanel.add(JLabel(I18n.translate("text.glfw_path") + ":"))
-        formPanel.add(glfPathField)
+        val c = GridBagConstraints().apply {
+            fill = GridBagConstraints.HORIZONTAL
+            anchor = GridBagConstraints.WEST
+            insets = Insets(10, 10, 10, 10)
+            weightx = 1.0
+        }
 
-        formPanel.add(JLabel(I18n.translate("text.wrapper_command") + ":"))
-        formPanel.add(wrapperCommandField)
+        var row = 0
 
-        formPanel.add(useGlobalCheckBox)
-        formPanel.add(Box.createGlue())
+        c.gridx = 0; c.gridy = row; c.gridwidth = 2
+        formPanel.add(useLauncherWorkarounds, c)
+        row++
+
+        c.gridx = 0; c.gridy = row; c.gridwidth = 2
+        formPanel.add(JSeparator(), c)
+        row++
+
+        c.gridwidth = 1
+        c.gridx = 0; c.gridy = row; c.weightx = 0.0
+        formPanel.add(JLabel(I18n.translate("text.glfw_path") + ":"), c)
+        c.gridx = 1; c.weightx = 1.0
+        formPanel.add(glfPathField, c)
+        row++
+
+        c.gridx = 0; c.gridy = row; c.weightx = 0.0
+        formPanel.add(JLabel(I18n.translate("text.wrapper_command") + ":"), c)
+        c.gridx = 1; c.weightx = 1.0
+        formPanel.add(wrapperCommandField, c)
 
         add(formPanel, BorderLayout.NORTH)
 
@@ -37,12 +60,13 @@ class WorkaroundsSettingsPanel(
             is LauncherOptions -> {
                 glfPathField.text = options.customGLFWPath
                 wrapperCommandField.text = options.wrapperCommand
-                useGlobalCheckBox.isVisible = false
+                useLauncherWorkarounds.isVisible = false
             }
             is InstanceOptions -> {
                 glfPathField.text = options.customGLFWPath
                 wrapperCommandField.text = options.wrapperCommand
-                useGlobalCheckBox.isSelected = options.useLauncherWorkarounds
+                useLauncherWorkarounds.isSelected = options.useLauncherWorkarounds
+                applyLauncherSettings(options.useLauncherWorkarounds)
             }
         }
 
@@ -55,11 +79,12 @@ class WorkaroundsSettingsPanel(
                 is InstanceOptions -> {
                     options.customGLFWPath = glfPathField.text.trim()
                     options.wrapperCommand = wrapperCommandField.text.trim()
-                    options.useLauncherWorkarounds = useGlobalCheckBox.isSelected
+                    options.useLauncherWorkarounds = useLauncherWorkarounds.isSelected
                 }
             }
             onUpdate()
         }
+
         glfPathField.addActionListener { saveFields() }
         glfPathField.addFocusListener(object : java.awt.event.FocusAdapter() {
             override fun focusLost(e: java.awt.event.FocusEvent?) = saveFields()
@@ -68,11 +93,25 @@ class WorkaroundsSettingsPanel(
         wrapperCommandField.addFocusListener(object : java.awt.event.FocusAdapter() {
             override fun focusLost(e: java.awt.event.FocusEvent?) = saveFields()
         })
-        useGlobalCheckBox.addActionListener {
+        useLauncherWorkarounds.addActionListener {
             if (options is InstanceOptions) {
-                options.useLauncherWorkarounds = useGlobalCheckBox.isSelected
+                options.useLauncherWorkarounds = useLauncherWorkarounds.isSelected
+                applyLauncherSettings(options.useLauncherWorkarounds)
                 onUpdate()
             }
         }
+    }
+
+    private fun applyLauncherSettings(useLauncher: Boolean) {
+        if (options !is InstanceOptions) return
+
+        if (useLauncher) {
+            val launcher = LauncherOptions.load()
+            glfPathField.text = launcher.customGLFWPath
+            wrapperCommandField.text = launcher.wrapperCommand
+        }
+
+        glfPathField.isEnabled = !useLauncher
+        wrapperCommandField.isEnabled = !useLauncher
     }
 }
