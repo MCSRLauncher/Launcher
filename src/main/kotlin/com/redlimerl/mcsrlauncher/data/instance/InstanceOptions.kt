@@ -11,10 +11,16 @@ data class InstanceOptions(
     var useLauncherResolutionOption: Boolean = true,
     var autoModUpdates: Boolean = false,
     var clearBeforeLaunch: Boolean = false,
-
     var useLauncherWorkarounds: Boolean = true,
     var customGLFWPath: String = "",
     var wrapperCommand: String = "",
+    var preLaunchCommand: String = "",
+    var postExitCommand: String = "",
+    var enableFeralGamemode: Boolean = false,
+    var enableMangoHud: Boolean = false,
+    var useDiscreteGpu: Boolean = false,
+    var useZink: Boolean = false,
+
 
     override var minMemory: Int = 1024,
     override var maxMemory: Int = if (OSUtils.getTotalMemoryGB() > 15) 4096 else 2048,

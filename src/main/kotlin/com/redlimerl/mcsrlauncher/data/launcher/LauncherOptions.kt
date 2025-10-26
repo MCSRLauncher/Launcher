@@ -25,7 +25,13 @@ data class LauncherOptions(
     override var resolutionHeight: Int = 480,
 
     var customGLFWPath: String = "",
-    var wrapperCommand: String = ""
+    var wrapperCommand: String = "",
+    var preLaunchCommand: String = "",
+    var postExitCommand: String = "",
+    var enableFeralGamemode: Boolean = false,
+    var enableMangoHud: Boolean = false,
+    var useDiscreteGpu: Boolean = false,
+    var useZink: Boolean = false
 ) : LauncherSharedOptions {
 
     companion object {

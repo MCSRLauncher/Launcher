@@ -224,7 +224,7 @@
                   </grid>
                 </children>
               </scrollpane>
-              <scrollpane id="a12f1" binding="tabWorkaroundsScrollPane">
+              <scrollpane id="bc22a" binding="tabWorkaroundScrollPane">
                 <constraints>
                   <tabbedpane title="text.workarounds"/>
                 </constraints>

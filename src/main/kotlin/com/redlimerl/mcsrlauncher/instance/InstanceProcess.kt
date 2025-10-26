@@ -16,6 +16,7 @@ import com.redlimerl.mcsrlauncher.launcher.AccountManager
 import com.redlimerl.mcsrlauncher.launcher.GameAssetManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.AssetUtils
+import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -190,20 +191,51 @@ class InstanceProcess(val instance: BasicInstance) {
         if (accessToken != null) debugArgs = debugArgs.replace(accessToken, "[ACCESS TOKEN]")
         MCSRLauncher.LOGGER.debug(debugArgs)
 
-        GlobalScope.launch {
-            val processBuilder = ProcessBuilder(finalizeArgs)
-                .directory(instance.getGamePath().toFile())
-                .redirectErrorStream(true)
-            processBuilder.environment().apply {
-                put("INST_ID", instance.id)
-                put("INST_NAME", instance.displayName)
-                put("INST_DIR", instance.getInstancePath().absolutePathString())
-                put("INST_MC_DIR", instance.getGamePath().absolutePathString())
-                put("INST_MC_VER", instance.minecraftVersion)
-                put("INST_JAVA", javaContainer.path.absolutePathString())
-                put("INST_JAVA_ARGS", arguments.joinToString(" "))
+        val eff = if (useGlobalWorkarounds) MCSRLauncher.options else null
+
+        eff?.preLaunchCommand?.trim()?.takeIf { it.isNotEmpty() }?.let { cmd ->
+            try {
+                MCSRLauncher.LOGGER.info(I18n.translate("log.pre_launch_command", cmd))
+                Runtime.getRuntime().exec(cmd)
+            } catch (e: Exception) {
+                MCSRLauncher.LOGGER.error(I18n.translate("log.pre_launch_command_fail", cmd))
             }
-            val process = processBuilder.start()
+        }
+
+        val finalLaunchArgs = mutableListOf<String>()
+
+        if (eff?.enableFeralGamemode == true) finalLaunchArgs += "gamemoded"
+        if (eff?.enableMangoHud == true)    finalLaunchArgs += "mangohud"
+
+        if (wrapperCmd.isNotBlank()) finalLaunchArgs += wrapperCmd.split("\\s+".toRegex())
+
+        finalLaunchArgs += javaTarget
+        finalLaunchArgs += "-Djava.library.path=${instance.getNativePath().absolutePathString()}"
+        finalLaunchArgs += arguments
+        finalLaunchArgs += listOf("-cp", libraries.joinToString(File.pathSeparator) { it.absolutePathString() })
+        finalLaunchArgs += mainClass
+        finalLaunchArgs += gameArgs
+
+        val pb = ProcessBuilder(finalLaunchArgs)
+            .directory(instance.getGamePath().toFile())
+            .redirectErrorStream(true)
+
+        pb.environment().apply {
+            put("INST_NAME", instance.displayName)
+            put("INST_ID", instance.id)
+            put("INST_DIR", instance.getInstancePath().absolutePathString())
+            put("INST_MC_DIR", instance.getGamePath().absolutePathString())
+            put("INST_MC_VER", instance.minecraftVersion)
+            put("INST_JAVA", javaTarget)
+            put("INST_JAVA_ARGS", arguments.joinToString(" "))
+
+            if (eff?.useDiscreteGpu == true) put("DRI_PRIME", "1")
+            if (eff?.useZink == true)        put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
+        }
+
+
+        GlobalScope.launch {
+            val process = pb.start()
 
             launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
@@ -264,6 +296,22 @@ class InstanceProcess(val instance: BasicInstance) {
     private fun onExit(code: Int) {
         MCSRLauncher.GAME_PROCESSES.remove(this)
         this.instance.onProcessExit(code, exitByUser)
+        val opts = if (instance.options.useLauncherWorkarounds) {
+            MCSRLauncher.options
+        } else null
+
+        opts?.postExitCommand?.trim()?.takeIf { it.isNotEmpty() }?.let { cmd ->
+            try {
+                MCSRLauncher.LOGGER.info(
+                    I18n.translate("log.post_exit_command", cmd)
+                )
+                Runtime.getRuntime().exec(cmd)
+            } catch (e: Exception) {
+                MCSRLauncher.LOGGER.error(
+                    I18n.translate("log.post_exit_command_fail", cmd)
+                )
+            }
+        }
         this.logChannel.close()
     }
 

@@ -26,10 +26,10 @@ object I18n {
     fun translateGui(root: Container) {
         for (component in root.components) {
             when (component) {
-                is JLabel -> component.text = translate(component.text)
-                is JButton -> component.text = translate(component.text)
-                is JCheckBox -> component.text = translate(component.text)
-                is JRadioButton -> component.text = translate(component.text)
+                is JLabel -> component.text = component.text?.let { translate(it) } ?: ""
+                is JButton -> component.text = component.text?.let { translate(it) } ?: ""
+                is JCheckBox -> component.text = component.text?.let { translate(it) } ?: ""
+                is JRadioButton -> component.text = component.text?.let { translate(it) } ?: ""
                 is JTabbedPane -> {
                     for (i in 0 until component.tabCount) {
                         val title = component.getTitleAt(i)
