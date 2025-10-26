@@ -1,5 +1,6 @@
 package com.redlimerl.mcsrlauncher.gui.component
 
+import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.launcher.LauncherOptions
 import com.redlimerl.mcsrlauncher.data.instance.InstanceOptions
 import com.redlimerl.mcsrlauncher.util.I18n
@@ -11,6 +12,8 @@ import java.awt.Insets
 
 class WorkaroundSettingsPanel(
     parent: JDialog,
+    private val instance: BasicInstance?,
+    private val instanceOptions: InstanceOptions,
     private val options: Any,
     private val onUpdate: () -> Unit
 ) : JPanel() {
@@ -208,6 +211,14 @@ class WorkaroundSettingsPanel(
     private fun loadInstanceOptions(opt: InstanceOptions) {
         glfPathField.text = opt.customGLFWPath
         wrapperCommandField.text = opt.wrapperCommand
+        preLaunchField.text = opt.preLaunchCommand
+        postExitField.text = opt.postExitCommand
+
+        feralBox.isSelected = opt.enableFeralGamemode
+        mangoBox.isSelected = opt.enableMangoHud
+        discreteBox.isSelected = opt.useDiscreteGpu
+        zinkBox.isSelected = opt.useZink
+
         applyLauncherSettings(opt.useLauncherWorkarounds)
     }
 
@@ -226,7 +237,26 @@ class WorkaroundSettingsPanel(
     private fun saveInstanceOptions(opt: InstanceOptions) {
         opt.customGLFWPath = glfPathField.text.trim()
         opt.wrapperCommand = wrapperCommandField.text.trim()
+        opt.preLaunchCommand = preLaunchField.text.trim()
+        opt.postExitCommand = postExitField.text.trim()
+        opt.enableFeralGamemode = feralBox.isSelected
+        opt.enableMangoHud = mangoBox.isSelected
+        opt.useDiscreteGpu = discreteBox.isSelected
+        opt.useZink = zinkBox.isSelected
+
+        try {
+            val instanceId = (try { instance?.id?.takeIf { it.isNotBlank() } } catch (_: Exception) { null }) ?: "unknown_instance"
+            val instanceDir = com.redlimerl.mcsrlauncher.launcher.InstanceManager.INSTANCES_PATH.resolve(instanceId)
+            val configPath = instanceDir.resolve("instance.json")
+
+            instanceDir.toFile().mkdirs()
+            val jsonText = com.redlimerl.mcsrlauncher.MCSRLauncher.JSON.encodeToString(opt)
+            configPath.toFile().writeText(jsonText)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
+
 
     fun applyLauncherSettings(useLauncher: Boolean) {
         if (options !is InstanceOptions) return

@@ -8,4 +8,12 @@ interface LauncherSharedOptions {
     var maximumResolution: Boolean
     var resolutionWidth: Int
     var resolutionHeight: Int
+    var customGLFWPath: String
+    var wrapperCommand: String
+    var preLaunchCommand: String
+    var postExitCommand: String
+    var enableFeralGamemode: Boolean
+    var enableMangoHud: Boolean
+    var useDiscreteGpu: Boolean
+    var useZink: Boolean
 }

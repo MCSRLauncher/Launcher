@@ -12,14 +12,15 @@ data class InstanceOptions(
     var autoModUpdates: Boolean = false,
     var clearBeforeLaunch: Boolean = false,
     var useLauncherWorkarounds: Boolean = true,
-    var customGLFWPath: String = "",
-    var wrapperCommand: String = "",
-    var preLaunchCommand: String = "",
-    var postExitCommand: String = "",
-    var enableFeralGamemode: Boolean = false,
-    var enableMangoHud: Boolean = false,
-    var useDiscreteGpu: Boolean = false,
-    var useZink: Boolean = false,
+
+    override var customGLFWPath: String = "",
+    override var wrapperCommand: String = "",
+    override var preLaunchCommand: String = "",
+    override var postExitCommand: String = "",
+    override var enableFeralGamemode: Boolean = false,
+    override var enableMangoHud: Boolean = false,
+    override var useDiscreteGpu: Boolean = false,
+    override var useZink: Boolean = false,
 
 
     override var minMemory: Int = 1024,
@@ -39,4 +40,24 @@ data class InstanceOptions(
         return sharedOptions(if (useLauncherResolutionOption) MCSRLauncher.options else this)
     }
 
+    fun <T> getSharedWorkaroundValue(sharedOptions: (LauncherSharedOptions) -> T): T {
+        return sharedOptions(
+            if (useLauncherWorkarounds) MCSRLauncher.options else this
+        )
+    }
+
+    fun save(instanceId: String) {
+        val json = kotlinx.serialization.json.Json {
+            prettyPrint = true
+            encodeDefaults = true
+        }
+        val instancePath = com.redlimerl.mcsrlauncher.launcher.InstanceManager.INSTANCES_PATH
+            .resolve(instanceId)
+            .resolve("instance.json")
+        org.apache.commons.io.FileUtils.writeStringToFile(
+            instancePath.toFile(),
+            json.encodeToString(this),
+            Charsets.UTF_8
+        )
+    }
 }
