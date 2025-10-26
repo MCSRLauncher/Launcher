@@ -24,14 +24,14 @@ data class LauncherOptions(
     override var resolutionWidth: Int = 854,
     override var resolutionHeight: Int = 480,
 
-    var customGLFWPath: String = "",
-    var wrapperCommand: String = "",
-    var preLaunchCommand: String = "",
-    var postExitCommand: String = "",
-    var enableFeralGamemode: Boolean = false,
-    var enableMangoHud: Boolean = false,
-    var useDiscreteGpu: Boolean = false,
-    var useZink: Boolean = false
+    override var customGLFWPath: String = "",
+    override var wrapperCommand: String = "",
+    override var preLaunchCommand: String = "",
+    override var postExitCommand: String = "",
+    override var enableFeralGamemode: Boolean = false,
+    override var enableMangoHud: Boolean = false,
+    override var useDiscreteGpu: Boolean = false,
+    override var useZink: Boolean = false
 ) : LauncherSharedOptions {
 
     companion object {
@@ -40,7 +40,12 @@ data class LauncherOptions(
             val file = path.toFile()
             return if (file.exists()) {
                 val text = file.readText(Charsets.UTF_8)
-                Json.decodeFromString<LauncherOptions>(text)
+                val json = Json {
+                    ignoreUnknownKeys = true
+                    prettyPrint = true
+                    encodeDefaults = true
+                }
+                json.decodeFromString<LauncherOptions>(text)
             } else {
                 LauncherOptions()
             }
