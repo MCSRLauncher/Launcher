@@ -1,6 +1,7 @@
 package com.redlimerl.mcsrlauncher.data.instance
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
+import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.mcsrranked.MCSRRankedPackType
 import com.redlimerl.mcsrlauncher.data.meta.LauncherTrait
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
@@ -21,10 +22,7 @@ import com.redlimerl.mcsrlauncher.instance.mod.ModDownloadMethod
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.network.FileDownloader
-import com.redlimerl.mcsrlauncher.util.AssetUtils
-import com.redlimerl.mcsrlauncher.util.I18n
-import com.redlimerl.mcsrlauncher.util.LauncherWorker
-import com.redlimerl.mcsrlauncher.util.SpeedrunUtils
+import com.redlimerl.mcsrlauncher.util.*
 import io.github.z4kn4fein.semver.toVersionOrNull
 import kotlinx.coroutines.*
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -84,7 +82,11 @@ data class BasicInstance(
     }
 
     fun getGamePath(): Path {
-        return this.getInstancePath().resolve(".minecraft")
+        return if (OSUtils.getOSType() == DeviceOSType.WINDOWS) {
+            this.getInstancePath().resolve(".minecraft")
+        } else {
+            this.getInstancePath().resolve("minecraft")
+        }
     }
 
     fun getModsPath(): Path {
