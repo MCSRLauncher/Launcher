@@ -82,7 +82,7 @@ data class BasicInstance(
     }
 
     fun getGamePath(): Path {
-        return if (OSUtils.getOSType() == DeviceOSType.WINDOWS) {
+        return if ((OSUtils.getOSType() == DeviceOSType.WINDOWS || (this.getInstancePath().resolve(".minecraft").exists())) && !this.getInstancePath().resolve("minecraft").exists()) {
             this.getInstancePath().resolve(".minecraft")
         } else {
             this.getInstancePath().resolve("minecraft")
