@@ -44,9 +44,6 @@ enum class MetaUniqueID(val value: String, val isJava: Boolean = false) {
     @SerialName("org.mcsr.maps.practice")
     PRACTICE_MAPS("org.mcsr.maps.practice"),
 
-    @SerialName("org.mcsr.programs")
-    SPEEDRUN_TOOLS("org.mcsr.programs"),
-
     @SerialName("unknown")
     UNKNOWN("unknown");
 
