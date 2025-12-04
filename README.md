@@ -17,5 +17,8 @@ The detailed roadmap will be posted on our Discord server.
 
 ## Development
 This project has been written with IntelliJ IDEA, so we would recommend to use same IDE.
-If you are using IntelliJ IDEA, do not forget change these settings:
+\
+The GUI is designed using [IntelliJ IDEA Swing UI Designer](https://plugins.jetbrains.com/plugin/25304-swing-ui-designer). Please make sure to have the plugin installed to edit the GUI properly.
+\
+If you are using the IntelliJ IDEA Swing UI Designer, do not forget change these settings:
 - `Settings` -> `Editor` -> `GUI Designer` -> `Generate GUI into` -> Set: `Java code source`

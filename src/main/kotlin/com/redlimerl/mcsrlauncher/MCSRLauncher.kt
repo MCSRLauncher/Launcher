@@ -226,4 +226,33 @@ object MCSRLauncher {
         }
         return true
     }
+
+
+    object DataPaths {
+        val baseDir: File by lazy {
+            val os = com.redlimerl.mcsrlauncher.data.device.DeviceOSType.CURRENT_OS
+            val dir = when (os) {
+                com.redlimerl.mcsrlauncher.data.device.DeviceOSType.LINUX ->
+                    File(System.getProperty("user.home"), ".local/share/mcsr_launcher")
+                com.redlimerl.mcsrlauncher.data.device.DeviceOSType.MACOS ->
+                    File(System.getProperty("user.home"), "Library/Application Support/mcsr_launcher")
+                else ->
+                    File(System.getProperty("user.dir"), "mcsr_launcher")
+            }
+            if (!dir.exists()) dir.mkdirs()
+            dir
+        }
+
+        val logsDir: File by lazy {
+            val logs = File(baseDir, "logs")
+            if (!logs.exists()) logs.mkdirs()
+            logs
+        }
+
+        fun setup() {
+            System.setProperty("mcsr.launcher.dir", baseDir.absolutePath)
+            System.setProperty("mcsr.logs.dir", logsDir.absolutePath)
+        }
+    }
+
 }
