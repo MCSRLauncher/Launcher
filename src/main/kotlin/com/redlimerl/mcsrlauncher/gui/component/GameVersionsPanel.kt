@@ -11,11 +11,7 @@ import com.redlimerl.mcsrlauncher.data.meta.MetaVersion
 import com.redlimerl.mcsrlauncher.data.meta.MetaVersionType
 import com.redlimerl.mcsrlauncher.gui.components.AbstractGameVersionsPanel
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
-import com.redlimerl.mcsrlauncher.util.I18n
-import com.redlimerl.mcsrlauncher.util.LauncherWorker
-import com.redlimerl.mcsrlauncher.util.OSUtils
-import com.redlimerl.mcsrlauncher.util.SpeedrunUtils
-import com.redlimerl.mcsrlauncher.util.SwingUtils
+import com.redlimerl.mcsrlauncher.util.*
 import io.github.z4kn4fein.semver.toVersion
 import java.awt.BorderLayout
 import java.net.URI
@@ -285,8 +281,8 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
         lwjglComboBox.removeAllItems()
         val lwjglRequire = minecraftVersion.requires.first()
         val availableLWJGL = MetaManager.getVersions(lwjglRequire.uid)
-            .filter { it.version.toVersion() >= lwjglRequire.suggests?.toVersion()!! }
-            .sortedByDescending { it.version.toVersion() }
+            .filter { it.version.toVersion(false) >= lwjglRequire.suggests?.toVersion(false )!! }
+            .sortedByDescending { it.version.toVersion(false) }
         availableLWJGL.forEach { lwjglComboBox.addItem(it.version) }
         var instanceLWJGL = instance?.lwjglVersion?.version
         if (availableLWJGL.none { it.version == instanceLWJGL } || (instance != null && instance.minecraftVersion != minecraftVersion.version)) instanceLWJGL = null
