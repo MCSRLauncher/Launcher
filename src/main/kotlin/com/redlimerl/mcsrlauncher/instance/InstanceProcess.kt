@@ -30,14 +30,15 @@ import javax.swing.SwingUtilities
 import kotlin.io.path.absolutePathString
 
 
+private const val MAX_LOG_ARCHIVE = 1000
+
 class InstanceProcess(val instance: BasicInstance) {
 
     var process: Process? = null
         private set
     private var exitByUser = false
 
-    private var logArchive = mutableListOf<String>()
-    private var logChannel = Channel<String>(Channel.UNLIMITED)
+    private var logChannel = Channel<String>(10000)
     private var viewerUpdater: Job? = null
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -225,15 +226,16 @@ class InstanceProcess(val instance: BasicInstance) {
         viewerUpdater?.cancel()
 
         viewerUpdater = GlobalScope.launch {
+            // Clear previous logs and prepare for new ones
             SwingUtilities.invokeLater {
                 logViewer.updateLogFiles()
-                logViewer.liveLogPane.text = ""
-                logArchive.forEach { logViewer.appendString(logViewer.liveLogPane, it) }
+                logViewer.clearLogs()
             }
+
+            // Process new logs in a CPU-efficient way
             for (line in logChannel) {
                 SwingUtilities.invokeLater {
-                    logViewer.appendString(logViewer.liveLogPane, line)
-                    logArchive += line
+                    logViewer.addLogs(listOf(line))
                     logViewer.onLiveUpdate()
                 }
             }

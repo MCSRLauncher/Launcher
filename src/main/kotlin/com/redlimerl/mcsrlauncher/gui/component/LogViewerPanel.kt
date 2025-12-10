@@ -4,7 +4,7 @@ import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.gui.LogSubmitGui
 import com.redlimerl.mcsrlauncher.gui.components.AbstractLogViewerPanel
-import com.redlimerl.mcsrlauncher.util.HttpUtils.makeJsonRequest
+import com.redlimerl.mcsrlauncher.util.HttpUtils
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -25,15 +25,18 @@ import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.zip.GZIPInputStream
-import javax.swing.JDialog
-import javax.swing.JOptionPane
-import javax.swing.JTextPane
-import javax.swing.SwingUtilities
+import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
-import javax.swing.text.*
+import javax.swing.text.DefaultHighlighter
+import javax.swing.text.SimpleAttributeSet
+import javax.swing.text.StyleConstants
+import javax.swing.text.StyledDocument
 
 class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
+
+    private val liveLogTableModel = LogTableModel()
+    private val liveLogTable = JTable(liveLogTableModel)
 
     var displayLiveLog = true
     private var autoScrollLive = true
@@ -45,13 +48,26 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         layout = BorderLayout()
         add(this.rootPane, BorderLayout.CENTER)
 
-        (liveLogPane.caret as DefaultCaret).updatePolicy = DefaultCaret.NEVER_UPDATE
+        liveLogTable.setDefaultRenderer(Object::class.java, LogTableCellRenderer())
+        liveLogTable.showVerticalLines = false
+        liveLogTable.showHorizontalLines = false
+        liveLogTable.gridColor = Color.DARK_GRAY
+        liveLogTable.tableHeader = null
+        liveLogTable.autoscrolls = false
+        liveLogTable.background = Color(36, 36, 36)
+        liveLogTable.foreground = Color.WHITE
+        liveLogTable.font = liveLogPane.font
+        liveScrollPane.setViewportView(liveLogTable)
+
+
         liveScrollPane.viewport.addChangeListener {
             val viewport = liveScrollPane.viewport
-            val viewEnd = viewport.viewPosition.y + viewport.height
-            val docHeight = liveLogPane.height
+            val viewRect = viewport.viewRect
+            val lastRow = liveLogTable.rowCount - 1
+            if (lastRow < 0) return@addChangeListener
+            val lastRowRect = liveLogTable.getCellRect(lastRow, 0, true)
 
-            autoScrollLive = (viewEnd >= (docHeight - (liveLogPane.font.size * 2)))
+            autoScrollLive = viewRect.y + viewRect.height >= lastRowRect.y + lastRowRect.height
         }
 
         searchField.document.addDocumentListener(object : DocumentListener {
@@ -64,10 +80,18 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
             }
         })
         searchField.addActionListener {
-            focusWord(getFocusedArea(), searchField.text)
+            if (displayLiveLog) {
+                focusWordInTable(searchField.text)
+            } else {
+                focusWordInPane(getFocusedTextPane(), searchField.text)
+            }
         }
         findButton.addActionListener {
-            focusWord(getFocusedArea(), searchField.text)
+            if (displayLiveLog) {
+                focusWordInTable(searchField.text)
+            } else {
+                focusWordInPane(getFocusedTextPane(), searchField.text)
+            }
         }
 
         updateLogFiles()
@@ -89,12 +113,12 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         }
 
         copyButton.addActionListener {
-            Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(getFocusedArea().text), null)
+            Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(getFocusedText()), null)
         }
 
         uploadButton.addActionListener {
             val selected = logFileBox.selectedItem as String
-            val text = getFocusedArea().text
+            val text = getFocusedText()
             if (text.isBlank()) return@addActionListener
 
             val result = JOptionPane.showConfirmDialog(this@LogViewerPanel, I18n.translate("message.upload_log_ask", selected), I18n.translate("text.warning"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
@@ -105,7 +129,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
                 val submitDialog = LogSubmitGui(SwingUtilities.getWindowAncestor(uploadButton))
                 object : LauncherWorker() {
                     override fun work(dialog: JDialog) {
-                        val request = makeJsonRequest(post, this)
+                        val request = HttpUtils.makeJsonRequest(post, this)
                         if (request.hasSuccess()) {
                             val json = request.get<JsonObject>()
                             val url = json["url"]?.jsonPrimitive?.content ?: throw IllegalStateException("Unknown response: $json")
@@ -120,6 +144,14 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         }
     }
 
+    fun addLogs(logs: List<String>) {
+        liveLogTableModel.addLogs(logs)
+    }
+
+    fun clearLogs() {
+        liveLogTableModel.clear()
+    }
+
     fun syncInstance(instance: BasicInstance) {
         instance.getProcess()?.syncLogViewer(this)
         debugCheckBox.actionListeners.toMutableList().forEach { debugCheckBox.removeActionListener(it) }
@@ -131,7 +163,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         MCSRLauncher.LOG_APPENDER.syncLogViewer(this)
         debugCheckBox.actionListeners.toMutableList().forEach { debugCheckBox.removeActionListener(it) }
         debugCheckBox.addActionListener {
-            liveLogPane.text = ""
+            clearLogs()
             syncLauncher()
         }
         debugCheckBox.isVisible = true
@@ -140,15 +172,18 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
 
     fun onLiveUpdate() {
         if (autoScrollLive) {
-            liveLogPane.caretPosition = liveLogPane.document.length
+            val lastRow = liveLogTable.rowCount - 1
+            if (lastRow >= 0) {
+                liveLogTable.scrollRectToVisible(liveLogTable.getCellRect(lastRow, 0, true))
+            }
         }
     }
 
-    fun appendString(textPane: JTextPane, message: String, multipleLines: Boolean = false) {
+    fun appendStringToTextPane(textPane: JTextPane, message: String) {
         val doc: StyledDocument = textPane.styledDocument
         val style = SimpleAttributeSet()
 
-        val strings = if (multipleLines) message.lines() else listOf(message)
+        val strings = message.lines()
         for (string in strings) {
             if (string.isEmpty()) continue
             when {
@@ -161,19 +196,47 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         }
     }
 
-    private fun getFocusedArea(): JTextPane {
-        return if (displayLiveLog) liveLogPane else fileLogPane
+    private fun getFocusedText(): String {
+        return if (displayLiveLog) {
+            val selectedRows = liveLogTable.selectedRows
+            if (selectedRows.isNotEmpty()) {
+                selectedRows.joinToString { liveLogTableModel.getValueAt(it, 0) as String }
+            } else {
+                (0 until liveLogTableModel.rowCount).joinToString { liveLogTableModel.getValueAt(it, 0) as String }
+            }
+        } else {
+            fileLogPane.selectedText ?: fileLogPane.text
+        }
     }
 
-    private fun focusWord(pane: JTextPane, word: String) {
+    private fun getFocusedTextPane(): JTextPane? {
+        return if (displayLiveLog) null else fileLogPane
+    }
+
+    private fun focusWordInTable(word: String) {
         if (word.isBlank()) return
+
+        for (i in searchCount until liveLogTableModel.rowCount) {
+            val text = liveLogTableModel.getValueAt(i, 0) as String
+            if (text.contains(word, true)) {
+                liveLogTable.setRowSelectionInterval(i, i)
+                liveLogTable.scrollRectToVisible(liveLogTable.getCellRect(i, 0, true))
+                searchCount = i + 1
+                return
+            }
+        }
+        searchCount = 0
+    }
+
+    private fun focusWordInPane(pane: JTextPane?, word: String) {
+        if (pane == null || word.isBlank()) return
 
         val content = pane.text
         val indexes = mutableListOf<Int>()
-        var searchIndex = content.indexOf(word)
+        var searchIndex = content.indexOf(word, 0, true)
         while (searchIndex >= 0) {
             indexes.add(searchIndex)
-            searchIndex = content.indexOf(word, searchIndex + word.length)
+            searchIndex = content.indexOf(word, searchIndex + word.length, true)
         }
 
         if (indexes.size <= searchCount) {
@@ -243,7 +306,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
                 fileLogPane.text = ""
                 text.lines().forEach {
                     if (!it.contains("[DEBUG]") || enabledDebug()) {
-                        appendString(fileLogPane, it + "\n")
+                        appendStringToTextPane(fileLogPane, it)
                     }
                 }
                 fileLogPane.caretPosition = 0
