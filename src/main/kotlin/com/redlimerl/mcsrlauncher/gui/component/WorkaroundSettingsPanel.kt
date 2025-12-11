@@ -31,6 +31,8 @@ class WorkaroundSettingsPanel(
     val feralInstalled: Boolean
     val mangoInstalled: Boolean
 
+    val envVarsPanel: EnvironmentVariablesPanel
+
     init {
         layout = BorderLayout()
         val formPanel = JPanel(GridBagLayout())
@@ -108,9 +110,12 @@ class WorkaroundSettingsPanel(
             c.weightx = 1.0
             formPanel.add(box, c)
         }
-
-        add(formPanel, BorderLayout.NORTH)
-
+        
+        formPanel.add(JSeparator(), GridBagConstraints().apply {
+            gridx = 0; gridy = row++; gridwidth = 2; fill = GridBagConstraints.HORIZONTAL
+            weightx = 1.0; insets = Insets(12, 0, 4, 0)
+        })
+        
         fun commandExists(cmd: String): Boolean {
             return try {
                 val process = ProcessBuilder("which", cmd).redirectErrorStream(true).start()
@@ -158,17 +163,32 @@ class WorkaroundSettingsPanel(
             zinkBox.toolTipText = "Zink $tooltipNotAvailable"
         }
 
-        when (options) {
-            is LauncherOptions -> loadLauncherOptions(options)
-            is InstanceOptions -> loadInstanceOptions(options)
-        }
-
         fun saveFields() {
             when (options) {
                 is LauncherOptions -> saveLauncherOptions(options)
                 is InstanceOptions -> saveInstanceOptions(options)
             }
             onUpdate()
+        }
+
+        val envLabel = JLabel(I18n.translate("text.environment_variables"))
+        envLabel.font = envLabel.font.deriveFont(java.awt.Font.BOLD)
+        formPanel.add(envLabel, GridBagConstraints().apply {
+            gridx = 0; gridy = row++; gridwidth = 2; fill = GridBagConstraints.HORIZONTAL
+            weightx = 1.0; insets = Insets(4, 8, 4, 8); anchor = GridBagConstraints.WEST
+        })
+
+        envVarsPanel = EnvironmentVariablesPanel { saveFields() }
+        formPanel.add(envVarsPanel, GridBagConstraints().apply {
+            gridx = 0; gridy = row++; gridwidth = 2; fill = GridBagConstraints.BOTH
+            weightx = 1.0; weighty = 1.0; insets = Insets(0, 8, 8, 8)
+        })
+
+        add(formPanel, BorderLayout.NORTH)
+
+        when (options) {
+            is LauncherOptions -> loadLauncherOptions(options)
+            is InstanceOptions -> loadInstanceOptions(options)
         }
 
         listOf(glfPathField, wrapperCommandField, preLaunchField, postExitField).forEach { field ->
@@ -192,6 +212,9 @@ class WorkaroundSettingsPanel(
         mangoBox.isSelected = opt.enableMangoHud
         discreteBox.isSelected = opt.useDiscreteGpu
         zinkBox.isSelected = opt.useZink
+
+        envVarsPanel.setEnvEnabled(opt.enableEnvironmentVariables)
+        envVarsPanel.setEnvironmentVariables(opt.environmentVariables)
     }
 
     private fun loadInstanceOptions(opt: InstanceOptions) {
@@ -205,6 +228,9 @@ class WorkaroundSettingsPanel(
         discreteBox.isSelected = opt.useDiscreteGpu
         zinkBox.isSelected = opt.useZink
 
+        envVarsPanel.setEnvEnabled(opt.enableEnvironmentVariables)
+        envVarsPanel.setEnvironmentVariables(opt.environmentVariables)
+
         applyLauncherSettings(opt.useLauncherWorkarounds)
     }
 
@@ -217,6 +243,8 @@ class WorkaroundSettingsPanel(
         opt.enableMangoHud = mangoBox.isSelected
         opt.useDiscreteGpu = discreteBox.isSelected
         opt.useZink = zinkBox.isSelected
+        opt.enableEnvironmentVariables = envVarsPanel.isEnvEnabled()
+        opt.environmentVariables = envVarsPanel.getEnvironmentVariables()
         opt.save()
     }
 
@@ -229,6 +257,8 @@ class WorkaroundSettingsPanel(
         opt.enableMangoHud = mangoBox.isSelected
         opt.useDiscreteGpu = discreteBox.isSelected
         opt.useZink = zinkBox.isSelected
+        opt.enableEnvironmentVariables = envVarsPanel.isEnvEnabled()
+        opt.environmentVariables = envVarsPanel.getEnvironmentVariables()
 
         try {
             val instanceId = (try { instance?.id?.takeIf { it.isNotBlank() } } catch (_: Exception) { null }) ?: "unknown_instance"
@@ -257,6 +287,8 @@ class WorkaroundSettingsPanel(
             mangoBox.isSelected = launcher.enableMangoHud
             discreteBox.isSelected = launcher.useDiscreteGpu
             zinkBox.isSelected = launcher.useZink
+            envVarsPanel.setEnvEnabled(launcher.enableEnvironmentVariables)
+            envVarsPanel.setEnvironmentVariables(launcher.environmentVariables)
         }
 
         val editable = !useLauncher
@@ -266,6 +298,7 @@ class WorkaroundSettingsPanel(
         mangoBox.isEnabled = editable && mangoInstalled
         discreteBox.isEnabled = editable
         zinkBox.isEnabled = editable
+        envVarsPanel.setEditable(editable)
 
         revalidate()
         repaint()

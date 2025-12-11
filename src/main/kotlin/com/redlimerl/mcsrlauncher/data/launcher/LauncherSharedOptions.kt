@@ -16,4 +16,6 @@ interface LauncherSharedOptions {
     var enableMangoHud: Boolean
     var useDiscreteGpu: Boolean
     var useZink: Boolean
+    var enableEnvironmentVariables: Boolean
+    var environmentVariables: MutableMap<String, String>
 }

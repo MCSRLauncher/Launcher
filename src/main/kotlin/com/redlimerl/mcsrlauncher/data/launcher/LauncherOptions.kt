@@ -31,7 +31,9 @@ data class LauncherOptions(
     override var enableFeralGamemode: Boolean = false,
     override var enableMangoHud: Boolean = false,
     override var useDiscreteGpu: Boolean = false,
-    override var useZink: Boolean = false
+    override var useZink: Boolean = false,
+    override var enableEnvironmentVariables: Boolean = false,
+    override var environmentVariables: MutableMap<String, String> = mutableMapOf()
 ) : LauncherSharedOptions {
 
     companion object {

@@ -21,7 +21,8 @@ data class InstanceOptions(
     override var enableMangoHud: Boolean = false,
     override var useDiscreteGpu: Boolean = false,
     override var useZink: Boolean = false,
-
+    override var enableEnvironmentVariables: Boolean = false,
+    override var environmentVariables: MutableMap<String, String> = mutableMapOf(),
 
     override var minMemory: Int = 1024,
     override var maxMemory: Int = if (OSUtils.getTotalMemoryGB() > 15) 4096 else 2048,
