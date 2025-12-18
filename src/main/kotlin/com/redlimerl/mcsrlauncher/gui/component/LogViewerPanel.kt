@@ -25,18 +25,17 @@ import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.zip.GZIPInputStream
-import javax.swing.*
+import javax.swing.JDialog
+import javax.swing.JOptionPane
+import javax.swing.JTextPane
+import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
-import javax.swing.text.DefaultHighlighter
-import javax.swing.text.SimpleAttributeSet
-import javax.swing.text.StyleConstants
-import javax.swing.text.StyledDocument
+import javax.swing.text.*
+
+private const val MAX_LOG_COUNT = 2000
 
 class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
-
-    private val liveLogTableModel = LogTableModel()
-    private val liveLogTable = JTable(liveLogTableModel)
 
     var displayLiveLog = true
     private var autoScrollLive = true
@@ -44,30 +43,33 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
     private var instanceMode = false
     private var lastLogName = ""
 
+    companion object {
+        private val ERROR_STYLE = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color(255, 60, 60)) }
+        private val WARN_STYLE = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color(0xCA7733)) }
+        private val DEBUG_STYLE = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color(171, 171, 171)) }
+        private val DEFAULT_STYLE = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color.WHITE) }
+    }
+
     init {
         layout = BorderLayout()
         add(this.rootPane, BorderLayout.CENTER)
 
-        liveLogTable.setDefaultRenderer(Object::class.java, LogTableCellRenderer())
-        liveLogTable.showVerticalLines = false
-        liveLogTable.showHorizontalLines = false
-        liveLogTable.gridColor = Color.DARK_GRAY
-        liveLogTable.tableHeader = null
-        liveLogTable.autoscrolls = false
-        liveLogTable.background = Color(36, 36, 36)
-        liveLogTable.foreground = Color.WHITE
-        liveLogTable.font = liveLogPane.font
-        liveScrollPane.setViewportView(liveLogTable)
+        liveLogPane.isEditable = false
+        liveScrollPane.setViewportView(liveLogPane)
+
+        // Fix for extra line spacing in JTextPane
+        val doc = liveLogPane.styledDocument
+        val defaultStyle = StyleContext.getDefaultStyleContext().getStyle(StyleContext.DEFAULT_STYLE)
+        val paragraphStyle = doc.addStyle("paragraphStyle", defaultStyle)
+        StyleConstants.setLineSpacing(paragraphStyle, 0f)
+        StyleConstants.setSpaceBelow(paragraphStyle, 0f)
+        doc.setParagraphAttributes(0, doc.length, paragraphStyle, true)
 
 
-        liveScrollPane.viewport.addChangeListener {
-            val viewport = liveScrollPane.viewport
-            val viewRect = viewport.viewRect
-            val lastRow = liveLogTable.rowCount - 1
-            if (lastRow < 0) return@addChangeListener
-            val lastRowRect = liveLogTable.getCellRect(lastRow, 0, true)
-
-            autoScrollLive = viewRect.y + viewRect.height >= lastRowRect.y + lastRowRect.height
+        liveScrollPane.verticalScrollBar.addAdjustmentListener { e ->
+            if (e.valueIsAdjusting) return@addAdjustmentListener
+            val scrollBar = liveScrollPane.verticalScrollBar
+            autoScrollLive = (scrollBar.value + scrollBar.visibleAmount) == scrollBar.maximum
         }
 
         searchField.document.addDocumentListener(object : DocumentListener {
@@ -77,21 +79,14 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
 
             fun textChanged() {
                 searchCount = 0
+                getFocusedTextPane()?.highlighter?.removeAllHighlights()
             }
         })
         searchField.addActionListener {
-            if (displayLiveLog) {
-                focusWordInTable(searchField.text)
-            } else {
-                focusWordInPane(getFocusedTextPane(), searchField.text)
-            }
+            focusWordInPane(getFocusedTextPane(), searchField.text)
         }
         findButton.addActionListener {
-            if (displayLiveLog) {
-                focusWordInTable(searchField.text)
-            } else {
-                focusWordInPane(getFocusedTextPane(), searchField.text)
-            }
+            focusWordInPane(getFocusedTextPane(), searchField.text)
         }
 
         updateLogFiles()
@@ -113,7 +108,13 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         }
 
         copyButton.addActionListener {
-            Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(getFocusedText()), null)
+            val textPane = getFocusedTextPane()
+            val selectedText = textPane?.selectedText
+            if (selectedText != null) {
+                Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(selectedText), null)
+            } else {
+                Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(getFocusedText()), null)
+            }
         }
 
         uploadButton.addActionListener {
@@ -145,11 +146,61 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
     }
 
     fun addLogs(logs: List<String>) {
-        liveLogTableModel.addLogs(logs)
+        if (logs.isEmpty()) return
+
+        val doc = liveLogPane.styledDocument
+        val currentDocLength = doc.length
+        val textToInsert = StringBuilder()
+        val styleRanges = mutableListOf<Triple<Int, Int, AttributeSet>>() // Triple: startOffsetInBatch, length, style
+
+        var currentOffsetInBatch = 0
+        for (message in logs) {
+            val strings = message.lines()
+            for (string in strings) {
+                val lineText = string
+                val styleToApply = when {
+                    string.contains("ERROR", true) -> ERROR_STYLE
+                    string.contains("WARN", true) -> WARN_STYLE
+                    string.contains("DEBUG", true) -> DEBUG_STYLE
+                    else -> DEFAULT_STYLE
+                }
+                styleRanges.add(Triple(currentOffsetInBatch, lineText.length + 1, styleToApply)) // +1 for the newline
+                textToInsert.append(lineText).append("\n") // Append newline explicitly
+                currentOffsetInBatch += lineText.length + 1
+            }
+        }
+
+        try {
+            doc.insertString(currentDocLength, textToInsert.toString(), null) // Insert all text first
+            for ((startOffsetInBatch, length, style) in styleRanges) {
+                val startOffset = currentDocLength + startOffsetInBatch
+                doc.setCharacterAttributes(startOffset, length, style, false)
+            }
+        } catch (e: BadLocationException) {
+            MCSRLauncher.LOGGER.error("Failed to insert or style logs", e)
+        }
+
+        // Reset search state after document modification
+        searchCount = 0
+        liveLogPane.highlighter.removeAllHighlights()
+
+        val root = doc.defaultRootElement
+        val lineCount = root.elementCount
+        if (lineCount > MAX_LOG_COUNT) {
+            val excess = lineCount - MAX_LOG_COUNT
+            val endOffset = root.getElement(excess - 1).endOffset
+            try {
+                doc.remove(0, endOffset)
+            } catch (e: BadLocationException) {
+                MCSRLauncher.LOGGER.error("Failed to trim logs", e)
+            }
+        }
     }
 
     fun clearLogs() {
-        liveLogTableModel.clear()
+        liveLogPane.text = ""
+        searchCount = 0
+        liveLogPane.highlighter.removeAllHighlights()
     }
 
     fun syncInstance(instance: BasicInstance) {
@@ -172,66 +223,43 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
 
     fun onLiveUpdate() {
         if (autoScrollLive) {
-            val lastRow = liveLogTable.rowCount - 1
-            if (lastRow >= 0) {
-                liveLogTable.scrollRectToVisible(liveLogTable.getCellRect(lastRow, 0, true))
-            }
+            liveLogPane.caretPosition = liveLogPane.document.length
         }
     }
 
     fun appendStringToTextPane(textPane: JTextPane, message: String) {
         val doc: StyledDocument = textPane.styledDocument
-        val style = SimpleAttributeSet()
 
         val strings = message.lines()
         for (string in strings) {
-            if (string.isEmpty()) continue
-            when {
-                string.contains("ERROR", true) -> StyleConstants.setForeground(style, Color(255, 60, 60))
-                string.contains("WARN") -> StyleConstants.setForeground(style, Color(0xCA7733))
-                string.contains("DEBUG") -> StyleConstants.setForeground(style, Color(171, 171, 171))
-                else -> StyleConstants.setForeground(style, Color.WHITE)
+            if (string.isEmpty() && strings.size == 1) {
+                doc.insertString(doc.length, "\n", DEFAULT_STYLE)
+                continue
             }
-            doc.insertString(doc.length, string + (if (string.endsWith("\n")) "" else "\n"), style)
+            if (string.isBlank()) continue
+
+            val styleToApply = when {
+                string.contains("ERROR", true) -> ERROR_STYLE
+                string.contains("WARN", true) -> WARN_STYLE
+                string.contains("DEBUG", true) -> DEBUG_STYLE
+                else -> DEFAULT_STYLE
+            }
+            doc.insertString(doc.length, string + (if (string.endsWith("\n")) "" else "\n"), styleToApply)
         }
     }
 
     private fun getFocusedText(): String {
-        return if (displayLiveLog) {
-            val selectedRows = liveLogTable.selectedRows
-            if (selectedRows.isNotEmpty()) {
-                selectedRows.joinToString { liveLogTableModel.getValueAt(it, 0) as String }
-            } else {
-                (0 until liveLogTableModel.rowCount).joinToString { liveLogTableModel.getValueAt(it, 0) as String }
-            }
-        } else {
-            fileLogPane.selectedText ?: fileLogPane.text
-        }
+        return getFocusedTextPane()?.text ?: ""
     }
 
     private fun getFocusedTextPane(): JTextPane? {
-        return if (displayLiveLog) null else fileLogPane
-    }
-
-    private fun focusWordInTable(word: String) {
-        if (word.isBlank()) return
-
-        for (i in searchCount until liveLogTableModel.rowCount) {
-            val text = liveLogTableModel.getValueAt(i, 0) as String
-            if (text.contains(word, true)) {
-                liveLogTable.setRowSelectionInterval(i, i)
-                liveLogTable.scrollRectToVisible(liveLogTable.getCellRect(i, 0, true))
-                searchCount = i + 1
-                return
-            }
-        }
-        searchCount = 0
+        return if (displayLiveLog) liveLogPane else fileLogPane
     }
 
     private fun focusWordInPane(pane: JTextPane?, word: String) {
         if (pane == null || word.isBlank()) return
 
-        val content = pane.text
+        val content = pane.styledDocument.getText(0, pane.styledDocument.length)
         val indexes = mutableListOf<Int>()
         var searchIndex = content.indexOf(word, 0, true)
         while (searchIndex >= 0) {
@@ -239,11 +267,14 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
             searchIndex = content.indexOf(word, searchIndex + word.length, true)
         }
 
+        if (indexes.isEmpty()) {
+            pane.highlighter.removeAllHighlights()
+            return
+        }
+
         if (indexes.size <= searchCount) {
             searchCount = 0
         }
-
-        if (indexes.isEmpty()) return
 
         val targetIndex = indexes[searchCount]
         pane.caretPosition = targetIndex
@@ -251,11 +282,21 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         val highlighter = pane.highlighter
         highlighter.removeAllHighlights()
 
+        val focusedPainter = DefaultHighlighter.DefaultHighlightPainter(Color.ORANGE)
+        val otherPainter = DefaultHighlighter.DefaultHighlightPainter(Color.ORANGE.darker().darker())
+
         for (index in indexes) {
-            highlighter.addHighlight(index, index + word.length, DefaultHighlighter.DefaultHighlightPainter(if (index == targetIndex) Color.ORANGE else Color.ORANGE.darker().darker()))
+            highlighter.addHighlight(index, index + word.length, if (index == targetIndex) focusedPainter else otherPainter)
         }
 
-        pane.modelToView2D(targetIndex)?.let { pane.scrollRectToVisible(it.bounds) }
+        try {
+            val view = pane.modelToView2D(targetIndex)
+            if (view != null) {
+                pane.scrollRectToVisible(view.bounds)
+            }
+        } catch (e: BadLocationException) {
+            // ignore
+        }
         searchCount++
     }
 
