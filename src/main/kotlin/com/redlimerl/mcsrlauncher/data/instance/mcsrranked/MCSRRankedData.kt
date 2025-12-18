@@ -26,7 +26,8 @@ data class MCSRRankedVersionData(
         modFile.parentFile.mkdirs()
         FileDownloader.download(this.downloadUrl, modFile, worker, this.size)
 
-        Files.move(modFile.toPath(), oldMod?.file?.toPath() ?: modFile.toPath().parent.resolve(this.downloadUrl.split("/").last()), StandardCopyOption.REPLACE_EXISTING)
+        Files.move(modFile.toPath(), modFile.toPath().parent.resolve(this.downloadUrl.split("/").last()), StandardCopyOption.REPLACE_EXISTING)
+        oldMod?.file?.delete()
     }
 }
 
