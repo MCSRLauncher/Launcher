@@ -191,8 +191,8 @@ class InstanceProcess(val instance: BasicInstance) {
             launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
                     lines.forEach { line ->
-                        val fullLine = line
-                        addLog(fullLine)
+                        logChannel.send(line)
+                        addLog(line)
                     }
                 }
             }
@@ -233,7 +233,6 @@ class InstanceProcess(val instance: BasicInstance) {
     }
 
     suspend fun addLog(logString: String) {
-        logChannel.send(logString)
         synchronized(logArchive) {
             logArchive.add(logString)
             if (logArchive.size > MAX_LOG_ARCHIVED_COUNT) {
