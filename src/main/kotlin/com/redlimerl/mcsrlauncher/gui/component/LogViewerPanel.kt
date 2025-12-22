@@ -4,7 +4,7 @@ import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.gui.LogSubmitGui
 import com.redlimerl.mcsrlauncher.gui.components.AbstractLogViewerPanel
-import com.redlimerl.mcsrlauncher.util.HttpUtils.makeJsonRequest
+import com.redlimerl.mcsrlauncher.util.HttpUtils
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -33,6 +33,8 @@ import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.text.*
 
+private const val MAX_LOG_COUNT = 2000
+
 class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
 
     var displayLiveLog = true
@@ -41,17 +43,33 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
     private var instanceMode = false
     private var lastLogName = ""
 
+    companion object {
+        private val ERROR_STYLE = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color(255, 60, 60)) }
+        private val WARN_STYLE = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color(0xCA7733)) }
+        private val DEBUG_STYLE = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color(171, 171, 171)) }
+        private val DEFAULT_STYLE = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color.WHITE) }
+    }
+
     init {
         layout = BorderLayout()
         add(this.rootPane, BorderLayout.CENTER)
 
-        (liveLogPane.caret as DefaultCaret).updatePolicy = DefaultCaret.NEVER_UPDATE
-        liveScrollPane.viewport.addChangeListener {
-            val viewport = liveScrollPane.viewport
-            val viewEnd = viewport.viewPosition.y + viewport.height
-            val docHeight = liveLogPane.height
+        liveLogPane.isEditable = false
+        liveScrollPane.setViewportView(liveLogPane)
 
-            autoScrollLive = (viewEnd >= (docHeight - (liveLogPane.font.size * 2)))
+        // Fix for extra line spacing in JTextPane
+        val doc = liveLogPane.styledDocument
+        val defaultStyle = StyleContext.getDefaultStyleContext().getStyle(StyleContext.DEFAULT_STYLE)
+        val paragraphStyle = doc.addStyle("paragraphStyle", defaultStyle)
+        StyleConstants.setLineSpacing(paragraphStyle, 0f)
+        StyleConstants.setSpaceBelow(paragraphStyle, 0f)
+        doc.setParagraphAttributes(0, doc.length, paragraphStyle, true)
+
+
+        liveScrollPane.verticalScrollBar.addAdjustmentListener { e ->
+            if (e.valueIsAdjusting) return@addAdjustmentListener
+            val scrollBar = liveScrollPane.verticalScrollBar
+            autoScrollLive = (scrollBar.value + scrollBar.visibleAmount) == scrollBar.maximum
         }
 
         searchField.document.addDocumentListener(object : DocumentListener {
@@ -61,13 +79,14 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
 
             fun textChanged() {
                 searchCount = 0
+                getFocusedTextPane()?.highlighter?.removeAllHighlights()
             }
         })
         searchField.addActionListener {
-            focusWord(getFocusedArea(), searchField.text)
+            focusWordInPane(getFocusedTextPane(), searchField.text)
         }
         findButton.addActionListener {
-            focusWord(getFocusedArea(), searchField.text)
+            focusWordInPane(getFocusedTextPane(), searchField.text)
         }
 
         updateLogFiles()
@@ -89,12 +108,18 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         }
 
         copyButton.addActionListener {
-            Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(getFocusedArea().text), null)
+            val textPane = getFocusedTextPane()
+            val selectedText = textPane?.selectedText
+            if (selectedText != null) {
+                Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(selectedText), null)
+            } else {
+                Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(getFocusedText()), null)
+            }
         }
 
         uploadButton.addActionListener {
             val selected = logFileBox.selectedItem as String
-            val text = getFocusedArea().text
+            val text = getFocusedText()
             if (text.isBlank()) return@addActionListener
 
             val result = JOptionPane.showConfirmDialog(this@LogViewerPanel, I18n.translate("message.upload_log_ask", selected), I18n.translate("text.warning"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
@@ -105,7 +130,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
                 val submitDialog = LogSubmitGui(SwingUtilities.getWindowAncestor(uploadButton))
                 object : LauncherWorker() {
                     override fun work(dialog: JDialog) {
-                        val request = makeJsonRequest(post, this)
+                        val request = HttpUtils.makeJsonRequest(post, this)
                         if (request.hasSuccess()) {
                             val json = request.get<JsonObject>()
                             val url = json["url"]?.jsonPrimitive?.content ?: throw IllegalStateException("Unknown response: $json")
@@ -120,6 +145,64 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         }
     }
 
+    fun addLogs(logs: List<String>) {
+        if (logs.isEmpty()) return
+
+        val doc = liveLogPane.styledDocument
+        val currentDocLength = doc.length
+        val textToInsert = StringBuilder()
+        val styleRanges = mutableListOf<Triple<Int, Int, AttributeSet>>() // Triple: startOffsetInBatch, length, style
+
+        var currentOffsetInBatch = 0
+        for (message in logs) {
+            val strings = message.lines()
+            for (string in strings) {
+                val lineText = string
+                val styleToApply = when {
+                    string.contains("ERROR", true) -> ERROR_STYLE
+                    string.contains("WARN", true) -> WARN_STYLE
+                    string.contains("DEBUG", true) -> DEBUG_STYLE
+                    else -> DEFAULT_STYLE
+                }
+                styleRanges.add(Triple(currentOffsetInBatch, lineText.length + 1, styleToApply)) // +1 for the newline
+                textToInsert.append(lineText).append("\n") // Append newline explicitly
+                currentOffsetInBatch += lineText.length + 1
+            }
+        }
+
+        try {
+            doc.insertString(currentDocLength, textToInsert.toString(), null) // Insert all text first
+            for ((startOffsetInBatch, length, style) in styleRanges) {
+                val startOffset = currentDocLength + startOffsetInBatch
+                doc.setCharacterAttributes(startOffset, length, style, false)
+            }
+        } catch (e: BadLocationException) {
+            MCSRLauncher.LOGGER.error("Failed to insert or style logs", e)
+        }
+
+        // Reset search state after document modification
+        searchCount = 0
+        liveLogPane.highlighter.removeAllHighlights()
+
+        val root = doc.defaultRootElement
+        val lineCount = root.elementCount
+        if (lineCount > MAX_LOG_COUNT) {
+            val excess = lineCount - MAX_LOG_COUNT
+            val endOffset = root.getElement(excess - 1).endOffset
+            try {
+                doc.remove(0, endOffset)
+            } catch (e: BadLocationException) {
+                MCSRLauncher.LOGGER.error("Failed to trim logs", e)
+            }
+        }
+    }
+
+    fun clearLogs() {
+        liveLogPane.text = ""
+        searchCount = 0
+        liveLogPane.highlighter.removeAllHighlights()
+    }
+
     fun syncInstance(instance: BasicInstance) {
         instance.getProcess()?.syncLogViewer(this)
         debugCheckBox.actionListeners.toMutableList().forEach { debugCheckBox.removeActionListener(it) }
@@ -131,7 +214,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         MCSRLauncher.LOG_APPENDER.syncLogViewer(this)
         debugCheckBox.actionListeners.toMutableList().forEach { debugCheckBox.removeActionListener(it) }
         debugCheckBox.addActionListener {
-            liveLogPane.text = ""
+            clearLogs()
             syncLauncher()
         }
         debugCheckBox.isVisible = true
@@ -144,43 +227,54 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         }
     }
 
-    fun appendString(textPane: JTextPane, message: String, multipleLines: Boolean = false) {
+    fun appendStringToTextPane(textPane: JTextPane, message: String) {
         val doc: StyledDocument = textPane.styledDocument
-        val style = SimpleAttributeSet()
 
-        val strings = if (multipleLines) message.lines() else listOf(message)
+        val strings = message.lines()
         for (string in strings) {
-            if (string.isEmpty()) continue
-            when {
-                string.contains("ERROR", true) -> StyleConstants.setForeground(style, Color(255, 60, 60))
-                string.contains("WARN") -> StyleConstants.setForeground(style, Color(0xCA7733))
-                string.contains("DEBUG") -> StyleConstants.setForeground(style, Color(171, 171, 171))
-                else -> StyleConstants.setForeground(style, Color.WHITE)
+            if (string.isEmpty() && strings.size == 1) {
+                doc.insertString(doc.length, "\n", DEFAULT_STYLE)
+                continue
             }
-            doc.insertString(doc.length, string + (if (string.endsWith("\n")) "" else "\n"), style)
+            if (string.isBlank()) continue
+
+            val styleToApply = when {
+                string.contains("ERROR", true) -> ERROR_STYLE
+                string.contains("WARN", true) -> WARN_STYLE
+                string.contains("DEBUG", true) -> DEBUG_STYLE
+                else -> DEFAULT_STYLE
+            }
+            doc.insertString(doc.length, string + (if (string.endsWith("\n")) "" else "\n"), styleToApply)
         }
     }
 
-    private fun getFocusedArea(): JTextPane {
+    private fun getFocusedText(): String {
+        return getFocusedTextPane()?.text ?: ""
+    }
+
+    private fun getFocusedTextPane(): JTextPane? {
         return if (displayLiveLog) liveLogPane else fileLogPane
     }
 
-    private fun focusWord(pane: JTextPane, word: String) {
-        if (word.isBlank()) return
+    private fun focusWordInPane(pane: JTextPane?, word: String) {
+        if (pane == null || word.isBlank()) return
 
-        val content = pane.text
+        val content = pane.styledDocument.getText(0, pane.styledDocument.length)
         val indexes = mutableListOf<Int>()
-        var searchIndex = content.indexOf(word)
+        var searchIndex = content.indexOf(word, 0, true)
         while (searchIndex >= 0) {
             indexes.add(searchIndex)
-            searchIndex = content.indexOf(word, searchIndex + word.length)
+            searchIndex = content.indexOf(word, searchIndex + word.length, true)
+        }
+
+        if (indexes.isEmpty()) {
+            pane.highlighter.removeAllHighlights()
+            return
         }
 
         if (indexes.size <= searchCount) {
             searchCount = 0
         }
-
-        if (indexes.isEmpty()) return
 
         val targetIndex = indexes[searchCount]
         pane.caretPosition = targetIndex
@@ -188,11 +282,21 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
         val highlighter = pane.highlighter
         highlighter.removeAllHighlights()
 
+        val focusedPainter = DefaultHighlighter.DefaultHighlightPainter(Color.ORANGE)
+        val otherPainter = DefaultHighlighter.DefaultHighlightPainter(Color.ORANGE.darker().darker())
+
         for (index in indexes) {
-            highlighter.addHighlight(index, index + word.length, DefaultHighlighter.DefaultHighlightPainter(if (index == targetIndex) Color.ORANGE else Color.ORANGE.darker().darker()))
+            highlighter.addHighlight(index, index + word.length, if (index == targetIndex) focusedPainter else otherPainter)
         }
 
-        pane.modelToView2D(targetIndex)?.let { pane.scrollRectToVisible(it.bounds) }
+        try {
+            val view = pane.modelToView2D(targetIndex)
+            if (view != null) {
+                pane.scrollRectToVisible(view.bounds)
+            }
+        } catch (e: BadLocationException) {
+            // ignore
+        }
         searchCount++
     }
 
@@ -243,7 +347,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
                 fileLogPane.text = ""
                 text.lines().forEach {
                     if (!it.contains("[DEBUG]") || enabledDebug()) {
-                        appendString(fileLogPane, it + "\n")
+                        appendStringToTextPane(fileLogPane, it)
                     }
                 }
                 fileLogPane.caretPosition = 0

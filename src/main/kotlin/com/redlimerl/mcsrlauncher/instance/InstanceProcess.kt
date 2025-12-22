@@ -26,8 +26,13 @@ import java.io.File
 import java.io.InputStreamReader
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.*
+import java.util.concurrent.ConcurrentLinkedQueue
 import javax.swing.SwingUtilities
+import javax.swing.Timer
 import kotlin.io.path.absolutePathString
+
+private const val MAX_LOG_ARCHIVED_COUNT = 1000
 
 class InstanceProcess(val instance: BasicInstance) {
 
@@ -35,29 +40,10 @@ class InstanceProcess(val instance: BasicInstance) {
         private set
     private var exitByUser = false
 
-    private var logArchive = mutableListOf<String>()
-    private var logChannel = Channel<String>(Channel.UNLIMITED)
+    private val logArchive: MutableList<String> = Collections.synchronizedList(LinkedList())
+    private var logChannel = Channel<String>(10000)
     private var viewerUpdater: Job? = null
 
-    @OptIn(DelicateCoroutinesApi::class)
-    fun syncLogViewer(logViewer: LogViewerPanel) {
-        viewerUpdater?.cancel()
-
-        viewerUpdater = GlobalScope.launch {
-            SwingUtilities.invokeLater {
-                logViewer.updateLogFiles()
-                logViewer.liveLogPane.text = ""
-                logArchive.forEach { logViewer.appendString(logViewer.liveLogPane, it) }
-            }
-            for (line in logChannel) {
-                SwingUtilities.invokeLater {
-                    logViewer.appendString(logViewer.liveLogPane, line)
-                    logArchive += line
-                    logViewer.onLiveUpdate()
-                }
-            }
-        }
-    }
     fun start(worker: LauncherWorker) {
         val javaTarget = instance.options.getSharedJavaValue { it.javaPath }
         val noJavaException = IllegalStateException("Java has not been properly selected. Try changing your Java path")
@@ -210,17 +196,36 @@ class InstanceProcess(val instance: BasicInstance) {
             }
         }
 
+        val gameLaunchArgs = mutableListOf<String>()
+        gameLaunchArgs += javaTarget
+        gameLaunchArgs += "-Djava.library.path=${instance.getNativePath().absolutePathString()}"
+        gameLaunchArgs += arguments
+        gameLaunchArgs += listOf("-cp", libraries.joinToString(File.pathSeparator) { it.absolutePathString() })
+        gameLaunchArgs += mainClass
+        gameLaunchArgs += gameArgs
+
+        val gameScript = gameLaunchArgs.joinToString(" ") { arg ->
+            if (arg.contains(" ") || arg.contains("$") || arg.contains("\"")) {
+                "'" + arg.replace("'", "'\\''") + "'"
+            } else arg
+        }
+
         val finalLaunchArgs = mutableListOf<String>()
         if (enableFeralGamemode) finalLaunchArgs += "gamemoded"
         if (enableMangoHud) finalLaunchArgs += "mangohud"
-        if (wrapperCmd.isNotBlank()) finalLaunchArgs += wrapperCmd.split("\\s+".toRegex())
 
-        finalLaunchArgs += javaTarget
-        finalLaunchArgs += "-Djava.library.path=${instance.getNativePath().absolutePathString()}"
-        finalLaunchArgs += arguments
-        finalLaunchArgs += listOf("-cp", libraries.joinToString(File.pathSeparator) { it.absolutePathString() })
-        finalLaunchArgs += mainClass
-        finalLaunchArgs += gameArgs
+        val useShellWrapper = wrapperCmd.contains("\$GAME_SCRIPT") || wrapperCmd.contains("\${GAME_SCRIPT}")
+
+        if (wrapperCmd.isNotBlank()) {
+            if (useShellWrapper) {
+                finalLaunchArgs += listOf("bash", "-c", wrapperCmd)
+            } else {
+                finalLaunchArgs += wrapperCmd.split("\\s+".toRegex())
+                finalLaunchArgs += gameLaunchArgs
+            }
+        } else {
+            finalLaunchArgs += gameLaunchArgs
+        }
 
         val pb = ProcessBuilder(finalLaunchArgs)
             .directory(instance.getGamePath().toFile())
@@ -234,6 +239,7 @@ class InstanceProcess(val instance: BasicInstance) {
             put("INST_MC_VER", instance.minecraftVersion)
             put("INST_JAVA", javaTarget)
             put("INST_JAVA_ARGS", arguments.joinToString(" "))
+            put("GAME_SCRIPT", gameScript)
             if (useDiscreteGpu) put("DRI_PRIME", "1")
             if (useZink) put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
             if (enableEnvironmentVariables) {
@@ -248,7 +254,8 @@ class InstanceProcess(val instance: BasicInstance) {
             launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
                     lines.forEach { line ->
-                        logChannel.send(line + "\n")
+                        logChannel.send(line)
+                        addLog(line)
                     }
                 }
             }
@@ -259,26 +266,104 @@ class InstanceProcess(val instance: BasicInstance) {
 
             val javaArch = if (javaContainer.arch.contains("64")) "x64" else "x86"
 
-            logChannel.send("${MCSRLauncher.APP_NAME} version: ${MCSRLauncher.APP_VERSION}\n\n\n")
-            logChannel.send("Minecraft folder is:\n${instance.getGamePath().absolutePathString()}\n\n\n")
-            logChannel.send("Java path is:\n${javaContainer.path}\n\n\n")
-            logChannel.send("Java is version: ${javaContainer.version} using $javaArch architecture\n\n\n")
-            if (wrapperCmd.isNotBlank()) logChannel.send("Wrapper command is:\n$wrapperCmd\n\n\n")
-            if (customGlfwPath.isNotBlank()) logChannel.send("Using custom GLFW library:\n$customGlfwPath\n\n\n")
-            if (enableFeralGamemode) logChannel.send("Running with Feral GameMode\n\n\n")
-            if (enableMangoHud) logChannel.send("Running with MangoHUD\n\n\n")
-            if (useDiscreteGpu) logChannel.send("Running with discrete GPU\n\n\n")
-            if (useZink) logChannel.send("Running with Zink renderer\n\n\n")
-            if (preLaunchCommand.isNotBlank()) logChannel.send("Pre-launch command:\n$preLaunchCommand\n\n\n")
-            if (postExitCommand.isNotBlank()) logChannel.send("Post-exit command:\n$postExitCommand\n\n\n")
+            val initialLogs = mutableListOf(
+                "${MCSRLauncher.APP_NAME} version: ${MCSRLauncher.APP_VERSION}\n\n",
+                "Minecraft folder is:\n${instance.getGamePath().absolutePathString()}\n\n",
+                "Java path is:\n${javaContainer.path}\n\n",
+                "Java is version: ${javaContainer.version} using $javaArch architecture from ${javaContainer.vendor}\n\n",
+                "Java arguments are:\n${arguments.joinToString(" ")}\n\n",
+                "Main Class:\n$mainClass\n\n"
+            )
+
+            if (wrapperCmd.isNotBlank()) initialLogs.add("Wrapper command:\n$wrapperCmd\n\n")
+            if (customGlfwPath.isNotBlank()) initialLogs.add("Custom GLFW library:\n$customGlfwPath\n\n")
+            if (enableFeralGamemode) initialLogs.add("Running with Feral GameMode\n\n")
+            if (enableMangoHud) initialLogs.add("Running with MangoHUD\n\n")
+            if (useDiscreteGpu) initialLogs.add("Running with discrete GPU (DRI_PRIME=1)\n\n")
+            if (useZink) initialLogs.add("Running with Zink renderer\n\n")
+            if (preLaunchCommand.isNotBlank()) initialLogs.add("Pre-launch command:\n$preLaunchCommand\n\n")
+            if (postExitCommand.isNotBlank()) initialLogs.add("Post-exit command:\n$postExitCommand\n\n")
             if (enableEnvironmentVariables && environmentVariables.isNotEmpty()) {
-                logChannel.send("Environment Variables:\n${environmentVariables.entries.joinToString("\n") { "${it.key}=${it.value}" }}\n\n\n")
+                initialLogs.add("Custom environment variables:\n${environmentVariables.entries.joinToString("\n") { "${it.key}=${it.value}" }}\n\n")
             }
 
+            initialLogs.add("Mods:")
+            initialLogs.forEach { message -> addLog(message) }
+
+            for (mod in instance.getMods()) {
+                val status = if (mod.isEnabled) "✅" else "❌"
+                val message = "   [$status] ${mod.file.name}${if (!mod.isEnabled) " (disabled)" else ""}"
+                addLog(message)
+            }
+
+            addLog("\n")
+
             val exitCode = process.waitFor()
-            logChannel.send("\nProcess exited with exit code $exitCode")
+            val exitMessage = "\nProcess exited with exit code $exitCode\n"
+            addLog(exitMessage)
+
             Thread.sleep(2000L)
             onExit(exitCode)
+        }
+    }
+
+    suspend fun addLog(logString: String) {
+        synchronized(logArchive) {
+            logArchive.add(logString)
+            if (logArchive.size > MAX_LOG_ARCHIVED_COUNT) {
+                logArchive.removeAt(0)
+            }
+        }
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    fun syncLogViewer(logViewer: LogViewerPanel) {
+        viewerUpdater?.cancel()
+
+        viewerUpdater = GlobalScope.launch {
+            SwingUtilities.invokeLater {
+                logViewer.updateLogFiles()
+                logViewer.clearLogs()
+                synchronized(logArchive) {
+                    logViewer.addLogs(logArchive.toList())
+                }
+            }
+
+            val logBuffer = ConcurrentLinkedQueue<String>()
+            val uiTimer = Timer(100) {
+                val logsToProcess = mutableListOf<String>()
+                while (true) {
+                    val log = logBuffer.poll() ?: break
+                    logsToProcess.add(log)
+                }
+
+                if (logsToProcess.isNotEmpty()) {
+                    logViewer.addLogs(logsToProcess)
+                    logViewer.onLiveUpdate()
+                }
+            }
+            uiTimer.start()
+
+            launch(Dispatchers.IO) {
+                for (line in logChannel) {
+                    logBuffer.add(line)
+                }
+            }
+
+            process?.waitFor()
+            uiTimer.stop()
+
+            SwingUtilities.invokeLater {
+                val logsToProcess = mutableListOf<String>()
+                while (true) {
+                    val log = logBuffer.poll() ?: break
+                    logsToProcess.add(log)
+                }
+                if (logsToProcess.isNotEmpty()) {
+                    logViewer.addLogs(logsToProcess)
+                    logViewer.onLiveUpdate()
+                }
+            }
         }
     }
 
@@ -304,7 +389,6 @@ class InstanceProcess(val instance: BasicInstance) {
             }
         }
     }
-
 
     fun exit() {
         exitByUser = true

@@ -20,13 +20,14 @@ data class MCSRRankedVersionData(
         val modFile = instance.getModsPath().resolve(this.downloadUrl.split("/").last() + ".temp").toFile()
         val oldMod: ModData? = instance.getMods().find { it.id == "mcsrranked" }
 
-        if (oldMod != null && oldMod.version.toVersion() >= this.version.toVersion()) return
+        if (oldMod != null && oldMod.version.toVersion(false) >= this.version.toVersion(false)) return
 
         worker.setState("Downloading MCSRRanked v${this.version}...")
         modFile.parentFile.mkdirs()
         FileDownloader.download(this.downloadUrl, modFile, worker, this.size)
 
-        Files.move(modFile.toPath(), oldMod?.file?.toPath() ?: modFile.toPath().parent.resolve(this.downloadUrl.split("/").last()), StandardCopyOption.REPLACE_EXISTING)
+        Files.move(modFile.toPath(), modFile.toPath().parent.resolve(this.downloadUrl.split("/").last()), StandardCopyOption.REPLACE_EXISTING)
+        oldMod?.file?.delete()
     }
 }
 
