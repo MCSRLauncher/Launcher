@@ -6,9 +6,11 @@ import com.redlimerl.mcsrlauncher.data.instance.InstanceOptions
 import com.redlimerl.mcsrlauncher.util.I18n
 import javax.swing.*
 import java.awt.BorderLayout
+import java.awt.Dimension
 import java.awt.GridBagLayout
 import java.awt.GridBagConstraints
 import java.awt.Insets
+import java.awt.Rectangle
 
 class WorkaroundSettingsPanel(
     parent: JDialog,
@@ -16,7 +18,13 @@ class WorkaroundSettingsPanel(
     private val instanceOptions: InstanceOptions,
     private val options: Any,
     private val onUpdate: () -> Unit
-) : JPanel() {
+) : JPanel(), Scrollable {
+
+    override fun getPreferredScrollableViewportSize(): Dimension = preferredSize
+    override fun getScrollableUnitIncrement(visibleRect: Rectangle, orientation: Int, direction: Int): Int = 16
+    override fun getScrollableBlockIncrement(visibleRect: Rectangle, orientation: Int, direction: Int): Int = 64
+    override fun getScrollableTracksViewportWidth(): Boolean = true
+    override fun getScrollableTracksViewportHeight(): Boolean = false
 
     val glfPathField = JTextField()
     val wrapperCommandField = JTextField()
@@ -184,7 +192,7 @@ class WorkaroundSettingsPanel(
             weightx = 1.0; weighty = 1.0; insets = Insets(0, 8, 8, 8)
         })
 
-        add(formPanel, BorderLayout.NORTH)
+        add(formPanel, BorderLayout.CENTER)
 
         when (options) {
             is LauncherOptions -> loadLauncherOptions(options)

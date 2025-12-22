@@ -15,8 +15,14 @@ class JsonHttpClientResponseHandler(private val worker: LauncherWorker) : HttpCl
             val stringEntity = EntityUtils.toString(response.entity)
             if (code !in 200..299) {
                 MCSRLauncher.LOGGER.error("JSON request failed ($code): \"$stringEntity\"")
+                return JsonResponseResult(code, null)
             }
-            return JsonResponseResult(code, MCSRLauncher.JSON.parseToJsonElement(stringEntity))
+            return try {
+                JsonResponseResult(code, MCSRLauncher.JSON.parseToJsonElement(stringEntity))
+            } catch (e: Exception) {
+                MCSRLauncher.LOGGER.error("Failed to parse JSON response: ${e.message}")
+                JsonResponseResult(code, null)
+            }
         }
         MCSRLauncher.LOGGER.error("JSON request failed ($code): Missing request result")
         return JsonResponseResult(code, null)

@@ -89,6 +89,8 @@ class InstanceProcess(val instance: BasicInstance) {
         val enableMangoHud: Boolean = instance.options.getSharedWorkaroundValue { it.enableMangoHud }
         val useDiscreteGpu: Boolean = instance.options.getSharedWorkaroundValue { it.useDiscreteGpu }
         val useZink: Boolean = instance.options.getSharedWorkaroundValue { it.useZink }
+        val enableEnvironmentVariables: Boolean = instance.options.getSharedWorkaroundValue { it.enableEnvironmentVariables }
+        val environmentVariables: Map<String, String> = instance.options.getSharedWorkaroundValue { it.environmentVariables }
 
         var mainClass: String
         val libraries = linkedSetOf<Path>()
@@ -234,6 +236,11 @@ class InstanceProcess(val instance: BasicInstance) {
             put("INST_JAVA_ARGS", arguments.joinToString(" "))
             if (useDiscreteGpu) put("DRI_PRIME", "1")
             if (useZink) put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
+            if (enableEnvironmentVariables) {
+                environmentVariables.forEach { (key, value) ->
+                    if (key.isNotBlank()) put(key, value)
+                }
+            }
         }
 
         GlobalScope.launch {
@@ -264,6 +271,9 @@ class InstanceProcess(val instance: BasicInstance) {
             if (useZink) logChannel.send("Running with Zink renderer\n\n\n")
             if (preLaunchCommand.isNotBlank()) logChannel.send("Pre-launch command:\n$preLaunchCommand\n\n\n")
             if (postExitCommand.isNotBlank()) logChannel.send("Post-exit command:\n$postExitCommand\n\n\n")
+            if (enableEnvironmentVariables && environmentVariables.isNotEmpty()) {
+                logChannel.send("Environment Variables:\n${environmentVariables.entries.joinToString("\n") { "${it.key}=${it.value}" }}\n\n\n")
+            }
 
             val exitCode = process.waitFor()
             logChannel.send("\nProcess exited with exit code $exitCode")
