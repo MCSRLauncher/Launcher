@@ -2,6 +2,7 @@ package com.redlimerl.mcsrlauncher.network
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
+import kotlinx.serialization.SerializationException
 import org.apache.hc.core5.http.ClassicHttpResponse
 import org.apache.hc.core5.http.io.HttpClientResponseHandler
 import org.apache.hc.core5.http.io.entity.EntityUtils
@@ -15,13 +16,13 @@ class JsonHttpClientResponseHandler(private val worker: LauncherWorker) : HttpCl
             val stringEntity = EntityUtils.toString(response.entity)
             if (code !in 200..299) {
                 MCSRLauncher.LOGGER.error("JSON request failed ($code): \"$stringEntity\"")
-                return JsonResponseResult(code, null)
             }
-            return try {
-                JsonResponseResult(code, MCSRLauncher.JSON.parseToJsonElement(stringEntity))
-            } catch (e: Exception) {
-                MCSRLauncher.LOGGER.error("Failed to parse JSON response: ${e.message}")
-                JsonResponseResult(code, null)
+            try {
+                val json = MCSRLauncher.JSON.parseToJsonElement(stringEntity)
+                return JsonResponseResult(code, json)
+            } catch (e: SerializationException) {
+                MCSRLauncher.LOGGER.error("JSON request failed: Failed to parse json")
+                return JsonResponseResult(code, null)
             }
         }
         MCSRLauncher.LOGGER.error("JSON request failed ($code): Missing request result")
@@ -38,7 +39,13 @@ class JsonSha256HttpClientResponseHandler(private val worker: LauncherWorker) : 
             if (code !in 200..299) {
                 MCSRLauncher.LOGGER.error("Failed to JSON request($code): \"$stringEntity\"")
             }
-            return JsonSha256ResponseResult(code, stringEntity)
+            try {
+                MCSRLauncher.JSON.parseToJsonElement(stringEntity)
+                return JsonSha256ResponseResult(code, stringEntity)
+            } catch (e: SerializationException) {
+                MCSRLauncher.LOGGER.error("JSON request failed: Failed to parse json")
+                return JsonSha256ResponseResult(code, null)
+            }
         }
         MCSRLauncher.LOGGER.error("Failed to JSON request($code): Missing request result")
         return JsonSha256ResponseResult(code, null)
