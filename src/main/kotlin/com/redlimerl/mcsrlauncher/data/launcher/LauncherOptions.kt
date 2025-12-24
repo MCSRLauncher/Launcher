@@ -22,11 +22,37 @@ data class LauncherOptions(
     override var maxMemory: Int = if (OSUtils.getTotalMemoryGB() > 15) 4096 else 2048,
     override var maximumResolution: Boolean = false,
     override var resolutionWidth: Int = 854,
-    override var resolutionHeight: Int = 480
+    override var resolutionHeight: Int = 480,
+
+    override var customGLFWPath: String = "",
+    override var wrapperCommand: String = "",
+    override var preLaunchCommand: String = "",
+    override var postExitCommand: String = "",
+    override var enableFeralGamemode: Boolean = false,
+    override var enableMangoHud: Boolean = false,
+    override var useDiscreteGpu: Boolean = false,
+    override var useZink: Boolean = false,
+    override var enableEnvironmentVariables: Boolean = false,
+    override var environmentVariables: MutableMap<String, String> = mutableMapOf()
 ) : LauncherSharedOptions {
 
     companion object {
         val path: Path = MCSRLauncher.BASE_PATH.resolve("options.json")
+        fun load(): LauncherOptions {
+            val file = path.toFile()
+            return if (file.exists()) {
+                val text = file.readText(Charsets.UTF_8)
+                val json = Json {
+                    ignoreUnknownKeys = true
+                    prettyPrint = true
+                    encodeDefaults = true
+                }
+                json.decodeFromString<LauncherOptions>(text)
+            } else {
+                LauncherOptions()
+            }
+        }
+
     }
 
     fun save() {
