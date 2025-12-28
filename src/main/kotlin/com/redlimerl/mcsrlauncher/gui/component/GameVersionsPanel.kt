@@ -14,14 +14,27 @@ import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.*
 import io.github.z4kn4fein.semver.toVersion
 import java.awt.BorderLayout
+import java.awt.Component
+import java.awt.FlowLayout
+import java.io.File
+import java.io.IOException
 import java.net.URI
+import java.nio.file.NoSuchFileException
+import java.nio.file.Path
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
+import javax.swing.filechooser.FileFilter
 import javax.swing.table.DefaultTableModel
+import javax.swing.table.TableCellRenderer
+import kotlin.io.path.isDirectory
+import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.name
 
 
 class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicInstance? = null) : AbstractGameVersionsPanel() {
+
+    var launcherPath: Path? = null
 
     init {
         layout = BorderLayout()
@@ -34,6 +47,8 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
         updateFabricVersions()
 
         initMCSRRankedComponents()
+
+        initMigrateLauncherComponents()
 
         if (instance != null) {
             val mcsrRanked = instance.mcsrRankedType
@@ -66,6 +81,8 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
                     break
                 }
             }
+
+            gameTabPane.removeTabAt(gameTabPane.indexOfTab("Migrate Launcher"))
         }
     }
 
@@ -302,6 +319,149 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
         mcsrRankedPackTypeBox.addActionListener {
             mcsrRankedPackTypeDescription.text = "<html>${(mcsrRankedPackTypeBox.selectedItem as MCSRRankedPackType).getWarningMessage()}</html>"
         }
+    }
+
+    private fun initMigrateLauncherComponents() {
+        mmcBrowseButton.addActionListener {
+            val fileChooser = JFileChooser().apply {
+                dialogType = JFileChooser.CUSTOM_DIALOG
+                dialogTitle = I18n.translate("text.java.browse")
+                fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                fileFilter = object : FileFilter() {
+                    override fun accept(f: File): Boolean {
+                        return f.isDirectory
+                    }
+
+                    override fun getDescription(): String {
+                        return "All Files"
+                    }
+                }
+            }
+            SwingUtils.makeEditablePathFileChooser(fileChooser)
+
+            val result = fileChooser.showDialog(this, I18n.translate("text.select"))
+
+            if (result == JFileChooser.APPROVE_OPTION) {
+                mmcPathField.text = fileChooser.selectedFile.path
+                updateLauncherInstances("mmc")
+            }
+        }
+
+        mmcRefreshButton.addActionListener {
+            object : LauncherWorker(parentWindow, I18n.translate("message.loading"), I18n.translate("message.updating.versions")) {
+                override fun work(dialog: JDialog) {
+                    updateLauncherInstances("mmc")
+                }
+            }.showDialog().start()
+        }
+
+        prismBrowseButton.addActionListener {
+            val fileChooser = JFileChooser().apply {
+                dialogType = JFileChooser.CUSTOM_DIALOG
+                dialogTitle = I18n.translate("text.java.browse")
+                fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                fileFilter = object : FileFilter() {
+                    override fun accept(f: File): Boolean {
+                        return f.isDirectory
+                    }
+
+                    override fun getDescription(): String {
+                        return "All Files"
+                    }
+                }
+            }
+            SwingUtils.makeEditablePathFileChooser(fileChooser)
+
+            val result = fileChooser.showDialog(this, I18n.translate("text.select"))
+
+            if (result == JFileChooser.APPROVE_OPTION) {
+                prismPathField.text = fileChooser.selectedFile.path
+                updateLauncherInstances("prism")
+            }
+        }
+
+        prismRefreshButton.addActionListener {
+            object : LauncherWorker(parentWindow, I18n.translate("message.loading"), I18n.translate("message.updating.versions")) {
+                override fun work(dialog: JDialog) {
+                    updateLauncherInstances("prism")
+                }
+            }.showDialog().start()
+        }
+    }
+
+    private fun updateLauncherInstances(launcher: String) {
+        val selectAllCheckbox = JCheckBox()
+        val tableModel = object : DefaultTableModel(arrayOf(), arrayOf(selectAllCheckbox, I18n.translate("Instance Name"))) {
+            override fun getColumnClass(columnIndex: Int): Class<*> {
+                return if (columnIndex == 0) java.lang.Boolean::class.java else String::class.java
+            }
+
+            override fun isCellEditable(row: Int, column: Int): Boolean {
+                return column == 0
+            }
+        }
+
+        launcherPath = when (launcher) {
+            "mmc" -> Path.of(mmcPathField.text)
+            else -> Path.of(prismPathField.text)
+        }
+        val instancesFolder = launcherPath!!.resolve("instances")
+        val message = when (launcher) {
+            "mmc" -> "Could not find instances folder. Does this path contain MultiMC.exe?"
+            else -> "Could not find instances folder. Does this path contain prismlauncher.exe?"
+        }
+        val table = when (launcher) {
+            "mmc" -> mmcInstanceTable
+            else -> prismInstanceTable
+        }
+
+        try {
+            instancesFolder.listDirectoryEntries().filter { it.isDirectory() }.forEach { dir ->
+                if (dir.name != "_LAUNCHER_TEMP" && dir.name != ".tmp") tableModel.addRow(arrayOf(false, dir.name))
+            }
+        } catch (e: NoSuchFileException) {
+            JOptionPane.showMessageDialog(this, message)
+        } catch (e: IOException) {
+            JOptionPane.showMessageDialog(this, "Error reading instances folder: ${e.message}")
+        }
+
+        table.model = tableModel
+
+        val tableCheckboxCol = table.columnModel.getColumn(0)
+        tableCheckboxCol.preferredWidth = 50
+        tableCheckboxCol.maxWidth = 50
+        tableCheckboxCol.headerRenderer = object : TableCellRenderer {
+            private val panel = JPanel(FlowLayout(FlowLayout.CENTER, 0, 5)).apply {
+                isOpaque = false
+                add(selectAllCheckbox)
+            }
+            override fun getTableCellRendererComponent(
+                table: JTable?,
+                value: Any?,
+                isSelected: Boolean,
+                hasFocus: Boolean,
+                row: Int,
+                column: Int
+            ): Component {
+                return panel
+            }
+        }
+
+        table.autoResizeMode = JTable.AUTO_RESIZE_LAST_COLUMN
+        table.tableHeader.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                val columnIndex = table.columnModel.getColumnIndexAtX(e.x)
+                if (columnIndex == 0) {
+                    selectAllCheckbox.isSelected = !selectAllCheckbox.isSelected
+
+                    for (i in 0 until tableModel.rowCount) {
+                        tableModel.setValueAt(selectAllCheckbox.isSelected, i, 0)
+                    }
+
+                    table.tableHeader.repaint()
+                }
+            }
+        })
     }
 
 }
