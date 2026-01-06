@@ -391,7 +391,7 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
 
     private fun updateLauncherInstances(launcher: String) {
         val selectAllCheckbox = JCheckBox()
-        val tableModel = object : DefaultTableModel(arrayOf(), arrayOf(selectAllCheckbox, I18n.translate("Instance Name"))) {
+        val tableModel = object : DefaultTableModel(arrayOf(), arrayOf(selectAllCheckbox, I18n.translate("instance.name"))) {
             override fun getColumnClass(columnIndex: Int): Class<*> {
                 return if (columnIndex == 0) java.lang.Boolean::class.java else String::class.java
             }
