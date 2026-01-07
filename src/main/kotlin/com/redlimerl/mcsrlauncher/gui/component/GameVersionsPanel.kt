@@ -50,6 +50,8 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
 
         initMigrateLauncherComponents()
 
+        initImportComponents()
+
         if (instance != null) {
             val mcsrRanked = instance.mcsrRankedType
             val fabric = instance.fabricVersion
@@ -462,6 +464,32 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
                 }
             }
         })
+    }
+
+    private fun initImportComponents() {
+        zipBrowseButton.addActionListener {
+            val fileChooser = JFileChooser().apply {
+                dialogType = JFileChooser.CUSTOM_DIALOG
+                dialogTitle = I18n.translate("text.browse")
+                fileSelectionMode = JFileChooser.FILES_ONLY
+                fileFilter = object : FileFilter() {
+                    override fun accept(f: File): Boolean {
+                        return f.isDirectory || f.name.lowercase().endsWith(".zip")
+                    }
+
+                    override fun getDescription(): String {
+                        return "ZIP Files (*.zip)"
+                    }
+                }
+            }
+            SwingUtils.makeEditablePathFileChooser(fileChooser)
+
+            val result = fileChooser.showDialog(this, I18n.translate("text.select"))
+
+            if (result == JFileChooser.APPROVE_OPTION) {
+                zipPathField.text = fileChooser.selectedFile.path
+            }
+        }
     }
 
 }

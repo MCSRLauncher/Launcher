@@ -22,6 +22,7 @@ import javax.swing.JFrame
 import javax.swing.JOptionPane
 import javax.swing.table.TableModel
 import kotlin.io.path.exists
+import kotlin.io.path.nameWithoutExtension
 
 
 class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
@@ -46,8 +47,16 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
         this.gameVersionsPanel.gameTabPane.addChangeListener {
             if (this.gameVersionsPanel.gameTabPane.selectedIndex == 3) {
                 createInstanceButton.text = "Migrate Instance(s)"
-                for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(listener)
+                for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(
+                    listener
+                )
                 createInstanceButton.addActionListener { this.migrateInstance(this.gameVersionsPanel.launcherTabPane.selectedIndex) }
+            } else if (this.gameVersionsPanel.gameTabPane.selectedIndex == 4) {
+                createInstanceButton.text = "Import Instance"
+                for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(
+                    listener
+                )
+                createInstanceButton.addActionListener { this.importInstance() }
             } else {
                 createInstanceButton.text = I18n.translate("instance.create")
                 for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(listener)
@@ -138,11 +147,11 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                 }
             }.showDialog().start()
             val cfg = folderPath?.resolve("instance.cfg")?.toFile()?.let { MigrationUtils.cfgReader(it) }
-            val mmcPack = folderPath?.resolve("mmc-pack.json")?.toFile()?.let { MigrationUtils.mmcPackReader(it) }
+            val mmcPack = folderPath?.resolve("mmc-pack.json")?.toFile()?.let { MigrationUtils.mmcPackReader(it.readText()) }
             val lwjglPatch = folderPath?.resolve(".minecraft")?.resolve("patches")?.resolve("org.lwjgl3.json")?.toFile()
             var lwjglVerData = LWJGLVersionData(MetaUniqueID.LWJGL3, "3.2.2")
             if (lwjglPatch?.exists() == true) {
-                lwjglVerData = MigrationUtils.getLWJGL(lwjglPatch)!!
+                lwjglVerData = MigrationUtils.getLWJGL(lwjglPatch.readText())!!
             }
 
             val instance = InstanceManager.createInstance(
@@ -169,6 +178,50 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                 instance.save()
             }
 
+        }
+
+    }
+
+    private fun importInstance() {
+        val zipPath = this.gameVersionsPanel.zipPathField.text
+
+        if (!File(zipPath).exists()) return
+
+        val instName = Path.of(zipPath).nameWithoutExtension
+        val newInstFolder = InstanceManager.INSTANCES_PATH.resolve(InstanceManager.getNewInstanceName(instName))
+
+        object : LauncherWorker(parent, I18n.translate("message.loading"), I18n.translate("message.importing")) {
+            override fun work(dialog: JDialog) {
+                MigrationUtils.importMinecraft(zipPath, newInstFolder.toString())
+            }
+        }.showDialog().start()
+
+        val cfg = MigrationUtils.extractCfg(zipPath)
+        val mmcPack = MigrationUtils.extractMMCPack(zipPath)
+        val lwjglVerData = MigrationUtils.getZIPLWJGL(zipPath)!!
+
+        val instance = InstanceManager.createInstance(
+            instName,
+            null,
+            MigrationUtils.getMinecraftVersion(mmcPack),
+            lwjglVerData,
+            MigrationUtils.getFabricVersion(mmcPack),
+            null
+        )
+
+        instance.options.useLauncherResolutionOption = !cfg.getProperty("OverrideWindow").toBoolean()
+        instance.options.useLauncherJavaOption = !cfg.getProperty("OverrideJavaArgs").toBoolean()
+        instance.options.javaPath = cfg.getProperty("JavaPath").toString()
+        instance.options.jvmArguments = cfg.getProperty("JvmArgs").toString()
+        instance.options.maxMemory = cfg.getProperty("MaxMemAlloc")?.toInt()!!
+        instance.options.minMemory = cfg.getProperty("MinMemAlloc")?.toInt()!!
+
+        this.dispose()
+
+        val autoUpdate = JOptionPane.showConfirmDialog(this, I18n.translate("message.auto_mod_update_ask"), I18n.translate("text.manage_speedrun_mods"), JOptionPane.YES_NO_OPTION)
+        if (autoUpdate == JOptionPane.YES_OPTION) {
+            instance.options.autoModUpdates = true
+            instance.save()
         }
 
     }
