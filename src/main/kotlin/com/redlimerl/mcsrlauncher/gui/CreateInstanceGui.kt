@@ -134,7 +134,7 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
 
         selectedInstances.forEach { instName ->
             val folderPath = this.gameVersionsPanel.launcherPath?.resolve("instances")?.resolve(instName)
-            val newInstFolder = InstanceManager.INSTANCES_PATH.resolve(instName)
+            val newInstFolder = InstanceManager.INSTANCES_PATH.resolve(InstanceManager.getNewInstanceName(instName))
             val minecraftFolder = if ((folderPath?.resolve(".minecraft")?.exists() == true) && (!folderPath.resolve("minecraft").exists())) {
                 ".minecraft"
             } else {
