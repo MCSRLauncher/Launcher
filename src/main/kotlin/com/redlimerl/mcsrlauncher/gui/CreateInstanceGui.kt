@@ -153,13 +153,14 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
             if (lwjglPatch?.exists() == true) {
                 lwjglVerData = MigrationUtils.getLWJGL(lwjglPatch.readText())!!
             }
+            val fabricVerData = MigrationUtils.getFabricVersion(mmcPack)
 
             val instance = InstanceManager.createInstance(
                 instName,
                 null,
                 MigrationUtils.getMinecraftVersion(mmcPack),
                 lwjglVerData,
-                MigrationUtils.getFabricVersion(mmcPack),
+                fabricVerData,
                 null
             )
 
@@ -172,10 +173,17 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
 
             this.dispose()
 
-            val autoUpdate = JOptionPane.showConfirmDialog(this, I18n.translate("message.auto_mod_update_ask"), I18n.translate("text.manage_speedrun_mods"), JOptionPane.YES_NO_OPTION)
-            if (autoUpdate == JOptionPane.YES_OPTION) {
-                instance.options.autoModUpdates = true
-                instance.save()
+            if (fabricVerData != null) {
+                val autoUpdate = JOptionPane.showConfirmDialog(
+                    this,
+                    I18n.translate("message.auto_mod_update_ask"),
+                    I18n.translate("text.manage_speedrun_mods"),
+                    JOptionPane.YES_NO_OPTION
+                )
+                if (autoUpdate == JOptionPane.YES_OPTION) {
+                    instance.options.autoModUpdates = true
+                    instance.save()
+                }
             }
 
         }
@@ -200,12 +208,14 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
         val mmcPack = MigrationUtils.extractMMCPack(zipPath)
         val lwjglVerData = MigrationUtils.getZIPLWJGL(zipPath)!!
 
+        val fabricVerData = MigrationUtils.getFabricVersion(mmcPack)
+
         val instance = InstanceManager.createInstance(
             instName,
             null,
             MigrationUtils.getMinecraftVersion(mmcPack),
             lwjglVerData,
-            MigrationUtils.getFabricVersion(mmcPack),
+            fabricVerData,
             null
         )
 
@@ -218,10 +228,12 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
 
         this.dispose()
 
-        val autoUpdate = JOptionPane.showConfirmDialog(this, I18n.translate("message.auto_mod_update_ask"), I18n.translate("text.manage_speedrun_mods"), JOptionPane.YES_NO_OPTION)
-        if (autoUpdate == JOptionPane.YES_OPTION) {
-            instance.options.autoModUpdates = true
-            instance.save()
+        if (fabricVerData != null) {
+            val autoUpdate = JOptionPane.showConfirmDialog(this, I18n.translate("message.auto_mod_update_ask"), I18n.translate("text.manage_speedrun_mods"), JOptionPane.YES_NO_OPTION)
+            if (autoUpdate == JOptionPane.YES_OPTION) {
+                instance.options.autoModUpdates = true
+                instance.save()
+            }
         }
 
     }
