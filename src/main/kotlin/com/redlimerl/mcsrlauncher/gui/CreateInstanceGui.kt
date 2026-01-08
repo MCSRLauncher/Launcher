@@ -135,15 +135,19 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
         selectedInstances.forEach { instName ->
             val folderPath = this.gameVersionsPanel.launcherPath?.resolve("instances")?.resolve(instName)
             val newInstFolder = InstanceManager.INSTANCES_PATH.resolve(InstanceManager.getNewInstanceName(instName))
-            val minecraftFolder = if ((folderPath?.resolve(".minecraft")?.exists() == true) && (!folderPath.resolve("minecraft").exists())) {
-                ".minecraft"
-            } else {
-                "minecraft"
+            val prevMCFolder = when {
+                (folderPath?.resolve(".minecraft")?.exists() == true) && (!folderPath.resolve("minecraft").exists()) -> ".minecraft"
+                (folderPath?.resolve("minecraft")?.exists() == true) && (!folderPath.resolve(".minecraft").exists()) -> "minecraft"
+                else -> ".minecraft"
+            }
+            val newMCFolder = when (OSUtils.getOSType()) {
+                DeviceOSType.WINDOWS -> ".minecraft"
+                else -> "minecraft"
             }
             object : LauncherWorker(parent, I18n.translate("message.loading"), I18n.translate("message.migrating")) {
                 override fun work(dialog: JDialog) {
                     newInstFolder.toFile().mkdirs()
-                    folderPath?.resolve(minecraftFolder)?.toFile()?.copyRecursively(newInstFolder.resolve(minecraftFolder).toFile())
+                    folderPath?.resolve(prevMCFolder)?.toFile()?.copyRecursively(newInstFolder.resolve(newMCFolder).toFile())
                 }
             }.showDialog().start()
             val cfg = folderPath?.resolve("instance.cfg")?.toFile()?.let { MigrationUtils.cfgReader(it) }
