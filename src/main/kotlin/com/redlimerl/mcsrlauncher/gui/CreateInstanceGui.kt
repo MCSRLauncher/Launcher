@@ -10,17 +10,14 @@ import com.redlimerl.mcsrlauncher.instance.mod.ModCategory
 import com.redlimerl.mcsrlauncher.instance.mod.ModDownloadMethod
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.util.*
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.io.File
 import java.nio.file.Path
+import java.util.*
 import javax.swing.JDialog
 import javax.swing.JFrame
 import javax.swing.JOptionPane
-import javax.swing.table.TableModel
 import kotlin.io.path.exists
 import kotlin.io.path.nameWithoutExtension
 
@@ -168,13 +165,7 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                 null
             )
 
-            instance.options.useLauncherResolutionOption = !cfg?.getProperty("OverrideWindow").toBoolean()
-            instance.options.useLauncherJavaOption = !cfg?.getProperty("OverrideJavaArgs").toBoolean()
-            instance.options.javaPath = cfg?.getProperty("JavaPath").toString()
-            instance.options.jvmArguments = cfg?.getProperty("JvmArgs").toString()
-            instance.options.maxMemory = cfg?.getProperty("MaxMemAlloc")?.toInt()!!
-            instance.options.minMemory = cfg.getProperty("MinMemAlloc")?.toInt()!!
-
+            if (cfg != null) this.applyCfgProperties(instance, cfg)
             this.dispose()
 
             if (fabricVerData != null) {
@@ -223,13 +214,7 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
             null
         )
 
-        instance.options.useLauncherResolutionOption = !cfg.getProperty("OverrideWindow").toBoolean()
-        instance.options.useLauncherJavaOption = !cfg.getProperty("OverrideJavaArgs").toBoolean()
-        instance.options.javaPath = cfg.getProperty("JavaPath").toString()
-        instance.options.jvmArguments = cfg.getProperty("JvmArgs").toString()
-        instance.options.maxMemory = cfg.getProperty("MaxMemAlloc")?.toInt()!!
-        instance.options.minMemory = cfg.getProperty("MinMemAlloc")?.toInt()!!
-
+        this.applyCfgProperties(instance, cfg)
         this.dispose()
 
         if (fabricVerData != null) {
@@ -240,6 +225,15 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
             }
         }
 
+    }
+
+    private fun applyCfgProperties(instance: BasicInstance, cfg: Properties) {
+        cfg.getProperty("OverrideWindow")?.toBoolean()?.let { instance.options.useLauncherResolutionOption = it }
+        cfg.getProperty("OverrideJavaArgs")?.toBoolean()?.let { instance.options.useLauncherJavaOption = it }
+        cfg.getProperty("JavaPath")?.toString()?.let { instance.options.javaPath = it }
+        cfg.getProperty("JvmArgs")?.toString()?.let { instance.options.jvmArguments = it }
+        cfg.getProperty("MaxMemAlloc")?.toInt()?.let { instance.options.maxMemory = it }
+        cfg.getProperty("MinMemAlloc")?.toInt()?.let { instance.options.maxMemory = it }
     }
 
 }
