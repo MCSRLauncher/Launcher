@@ -26,8 +26,6 @@ import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
 import javax.swing.JDialog
 import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
@@ -48,7 +46,6 @@ object MCSRLauncher {
     val JSON = Json { ignoreUnknownKeys = true; prettyPrint = true }
     lateinit var MAIN_FRAME: MainMenuGui private set
     lateinit var options: LauncherOptions private set
-    val SCHEDULER: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
     private val LOCK_FILE = BASE_PATH.resolve("_app.lock").toFile()
     private val PORT_FILE = BASE_PATH.resolve("_app.port").toFile()
