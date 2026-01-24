@@ -145,42 +145,41 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                 override fun work(dialog: JDialog) {
                     newInstFolder.toFile().mkdirs()
                     folderPath?.resolve(prevMCFolder)?.toFile()?.copyRecursively(newInstFolder.resolve(newMCFolder).toFile())
+                    val cfg = folderPath?.resolve("instance.cfg")?.toFile()?.let { MigrationUtils.cfgReader(it) }
+                    val mmcPack = folderPath?.resolve("mmc-pack.json")?.toFile()?.let { MigrationUtils.mmcPackReader(it.readText()) }
+                    val lwjglPatch = folderPath?.resolve(".minecraft")?.resolve("patches")?.resolve("org.lwjgl3.json")?.toFile()
+                    var lwjglVerData = LWJGLVersionData(MetaUniqueID.LWJGL3, "3.2.2")
+                    if (lwjglPatch?.exists() == true) {
+                        lwjglVerData = MigrationUtils.getLWJGL(lwjglPatch.readText())!!
+                    }
+                    val fabricVerData = MigrationUtils.getFabricVersion(mmcPack)
+
+                    val instance = InstanceManager.createInstance(
+                        instName,
+                        null,
+                        MigrationUtils.getMinecraftVersion(mmcPack),
+                        lwjglVerData,
+                        fabricVerData,
+                        null
+                    )
+
+                    if (cfg != null) this@CreateInstanceGui.applyCfgProperties(instance, cfg)
+                    this@CreateInstanceGui.dispose()
+
+                    if (fabricVerData != null) {
+                        val autoUpdate = JOptionPane.showConfirmDialog(
+                            this@CreateInstanceGui,
+                            I18n.translate("message.auto_mod_update_ask"),
+                            I18n.translate("text.manage_speedrun_mods"),
+                            JOptionPane.YES_NO_OPTION
+                        )
+                        if (autoUpdate == JOptionPane.YES_OPTION) {
+                            instance.options.autoModUpdates = true
+                            instance.save()
+                        }
+                    }
                 }
             }.showDialog().start()
-            val cfg = folderPath?.resolve("instance.cfg")?.toFile()?.let { MigrationUtils.cfgReader(it) }
-            val mmcPack = folderPath?.resolve("mmc-pack.json")?.toFile()?.let { MigrationUtils.mmcPackReader(it.readText()) }
-            val lwjglPatch = folderPath?.resolve(".minecraft")?.resolve("patches")?.resolve("org.lwjgl3.json")?.toFile()
-            var lwjglVerData = LWJGLVersionData(MetaUniqueID.LWJGL3, "3.2.2")
-            if (lwjglPatch?.exists() == true) {
-                lwjglVerData = MigrationUtils.getLWJGL(lwjglPatch.readText())!!
-            }
-            val fabricVerData = MigrationUtils.getFabricVersion(mmcPack)
-
-            val instance = InstanceManager.createInstance(
-                instName,
-                null,
-                MigrationUtils.getMinecraftVersion(mmcPack),
-                lwjglVerData,
-                fabricVerData,
-                null
-            )
-
-            if (cfg != null) this.applyCfgProperties(instance, cfg)
-            this.dispose()
-
-            if (fabricVerData != null) {
-                val autoUpdate = JOptionPane.showConfirmDialog(
-                    this,
-                    I18n.translate("message.auto_mod_update_ask"),
-                    I18n.translate("text.manage_speedrun_mods"),
-                    JOptionPane.YES_NO_OPTION
-                )
-                if (autoUpdate == JOptionPane.YES_OPTION) {
-                    instance.options.autoModUpdates = true
-                    instance.save()
-                }
-            }
-
         }
 
     }
@@ -196,35 +195,33 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
         object : LauncherWorker(parent, I18n.translate("message.loading"), I18n.translate("message.importing")) {
             override fun work(dialog: JDialog) {
                 MigrationUtils.importMinecraft(zipPath, newInstFolder.toString())
+                val cfg = MigrationUtils.extractCfg(zipPath)
+                val mmcPack = MigrationUtils.extractMMCPack(zipPath)
+                val lwjglVerData = MigrationUtils.getZIPLWJGL(zipPath)!!
+
+                val fabricVerData = MigrationUtils.getFabricVersion(mmcPack)
+
+                val instance = InstanceManager.createInstance(
+                    instName,
+                    null,
+                    MigrationUtils.getMinecraftVersion(mmcPack),
+                    lwjglVerData,
+                    fabricVerData,
+                    null
+                )
+
+                this@CreateInstanceGui.applyCfgProperties(instance, cfg)
+                this@CreateInstanceGui.dispose()
+
+                if (fabricVerData != null) {
+                    val autoUpdate = JOptionPane.showConfirmDialog(this@CreateInstanceGui, I18n.translate("message.auto_mod_update_ask"), I18n.translate("text.manage_speedrun_mods"), JOptionPane.YES_NO_OPTION)
+                    if (autoUpdate == JOptionPane.YES_OPTION) {
+                        instance.options.autoModUpdates = true
+                        instance.save()
+                    }
+                }
             }
         }.showDialog().start()
-
-        val cfg = MigrationUtils.extractCfg(zipPath)
-        val mmcPack = MigrationUtils.extractMMCPack(zipPath)
-        val lwjglVerData = MigrationUtils.getZIPLWJGL(zipPath)!!
-
-        val fabricVerData = MigrationUtils.getFabricVersion(mmcPack)
-
-        val instance = InstanceManager.createInstance(
-            instName,
-            null,
-            MigrationUtils.getMinecraftVersion(mmcPack),
-            lwjglVerData,
-            fabricVerData,
-            null
-        )
-
-        this.applyCfgProperties(instance, cfg)
-        this.dispose()
-
-        if (fabricVerData != null) {
-            val autoUpdate = JOptionPane.showConfirmDialog(this, I18n.translate("message.auto_mod_update_ask"), I18n.translate("text.manage_speedrun_mods"), JOptionPane.YES_NO_OPTION)
-            if (autoUpdate == JOptionPane.YES_OPTION) {
-                instance.options.autoModUpdates = true
-                instance.save()
-            }
-        }
-
     }
 
     private fun applyCfgProperties(instance: BasicInstance, cfg: Properties) {
