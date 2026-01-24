@@ -46,6 +46,8 @@ import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributeView
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.JDialog
 import javax.swing.JOptionPane
@@ -72,12 +74,21 @@ data class BasicInstance(
 
     @Transient
     var lastLaunch: Long = System.currentTimeMillis()
+        private set
+
+    @Transient
+    var lastPlaytimeUpdate: Long = System.currentTimeMillis()
+        private set
 
     @Transient
     var clearingWorlds: Boolean = false
+        private set
 
     @Transient
     val logViewerPanel: LogViewerPanel = LogViewerPanel(this.getGamePath())
+
+    @Transient
+    private var schedulerFuture: ScheduledFuture<*>? = null
 
     fun getInstancePath(): Path {
         return InstanceManager.INSTANCES_PATH.resolve(id)
@@ -111,6 +122,12 @@ data class BasicInstance(
         logViewerPanel.let { getProcess()?.syncLogViewer(it) }
         optionDialog?.setLauncherLaunched(true)
         lastLaunch = System.currentTimeMillis()
+        lastPlaytimeUpdate = lastLaunch
+        schedulerFuture = MCSRLauncher.SCHEDULER.scheduleWithFixedDelay({
+            playTime += (System.currentTimeMillis() - lastPlaytimeUpdate) / 1000
+            lastPlaytimeUpdate = System.currentTimeMillis()
+            if (this.isRunning()) this.save()
+        }, 30, 30, TimeUnit.SECONDS)
     }
 
     fun onProcessExit(code: Int, exitByUser: Boolean) {
@@ -118,8 +135,7 @@ data class BasicInstance(
         FileUtils.deleteDirectory(this.getNativePath().toFile())
         InstanceManager.refreshInstanceList()
         optionDialog?.setLauncherLaunched(false)
-        playTime += (System.currentTimeMillis() - lastLaunch) / 1000
-        this.save()
+        schedulerFuture?.cancel(false)
 
         if (code != 0) {
             val optionDialog = openOptionDialog()
