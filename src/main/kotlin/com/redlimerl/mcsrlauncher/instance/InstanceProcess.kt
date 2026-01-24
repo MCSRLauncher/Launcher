@@ -227,7 +227,7 @@ class InstanceProcess(val instance: BasicInstance) {
             val exitCode = process!!.waitFor()
             val exitMessage = "\nProcess exited with exit code $exitCode\n"
             addLog(exitMessage)
-            Thread.sleep(2000L)
+            Thread.sleep(1000L)
             onExit(exitCode)
         }
     }
