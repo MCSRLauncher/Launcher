@@ -1,0 +1,199 @@
+  <div class="sky-bg"></div>
+  <div id="loadingScreen">
+    <img src="icon_x256.png" class="loading-logo pixelated" alt="">
+    <div class="loading-text" id="loadingText">Loading...</div>
+    <div class="loading-bar">
+      <div class="loading-bar-fill" id="loadingFill"></div>
+    </div>
+  </div>
+
+  <div class="app" id="app">
+    <div id="normalMode">
+      <header class="header">
+        <div class="logo">
+          <div class="logo-text">MCSR <span>Launcher</span></div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-btn active" data-tab="instances" onclick="switchTab('instances')">
+            <img src="icons/grid.png" class="pixelated nav-icon">
+            <span>Instances</span>
+          </button>
+          <button class="nav-btn" data-tab="accounts" onclick="switchTab('accounts')">
+            <img src="icons/accounts.png" class="pixelated nav-icon">
+            <span>Accounts</span>
+          </button>
+          <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')">
+            <img src="icons/settings.png" class="pixelated nav-icon">
+            <span>Settings</span>
+          </button>
+        </nav>
+
+        <button class="ranked-toggle-btn" onclick="enterRankedMode()">
+          <img src="icon_x256.png" class="pixelated" alt="">
+          <span>RANKED</span>
+        </button>
+
+        <div class="player-info" id="playerInfo" style="display: none;">
+          <img src="" class="player-avatar pixelated" alt="" id="playerAvatar">
+          <span class="player-name" id="playerName">Player</span>
+        </div>
+      </header>
+
+      <div class="main-layout">
+        <aside class="sidebar" id="sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-title" id="sidebarTitle">INSTANCES</span>
+            <div class="sidebar-actions">
+              <button class="icon-btn" onclick="refresh()" title="Refresh">
+                <span class="material-symbols-rounded">refresh</span>
+              </button>
+              <button class="icon-btn" id="expandGridBtn" onclick="toggleInstanceGrid()" title="Grid View">
+                <img src="icons/grid.png" class="pixelated icon-img" id="gridBtnIcon">
+              </button>
+            </div>
+          </div>
+          <div class="instance-list" id="listContainer"></div>
+        </aside>
+
+        <div class="content-area">
+          <div class="cloud-container">
+            <img src="clouds/1blockcloud.png" class="cloud cloud-1 pixelated">
+            <img src="clouds/1blockcloud.png" class="cloud cloud-2 pixelated">
+            <img src="clouds/3blockcloud.png" class="cloud cloud-3 pixelated">
+            <img src="clouds/3blockcloud.png" class="cloud cloud-4 pixelated">
+            <img src="clouds/bigcloud.png" class="cloud cloud-5 pixelated">
+            <img src="clouds/bigcloud.png" class="cloud cloud-6 pixelated">
+            <img src="clouds/bigbigcloud.png" class="cloud cloud-7 pixelated">
+            <img src="clouds/bigbigcloud.png" class="cloud cloud-8 pixelated">
+            <img src="clouds/bigcloud.png" class="cloud cloud-9 pixelated">
+            <img src="clouds/bigbigcloud.png" class="cloud cloud-10 pixelated">
+          </div>
+
+          <div id="contentArea" style="flex: 1; padding: 20px; overflow-y: auto; position: relative; z-index: 5;"></div>
+        </div>
+      </div>
+
+      <div class="bottom-bar" id="bottomBar">
+        <div class="selected-instance-info">
+          <div class="selected-instance-name" id="selectedName">Select an instance</div>
+          <div class="selected-instance-detail" id="selectedDetail">-</div>
+        </div>
+        <div class="bottom-bar-actions">
+          <button class="mc-play-btn" id="playBtn" onclick="launchSelected()" disabled>
+            PLAY
+          </button>
+        </div>
+        <div class="status-info">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Ready</span>
+          <span style="margin-left: 12px;" id="versionText">v0.6.18-beta</span>
+        </div>
+      </div>
+    </div>
+    <div id="rankedMode">
+      <div class="ranked-sky"></div>
+
+      <header class="ranked-header">
+        <div class="ranked-logo">
+          <img src="icon_x256.png" class="pixelated" alt="">
+          <span class="ranked-logo-text">MCSR RANKED</span>
+        </div>
+
+        <button class="back-btn" onclick="exitRankedMode()">
+          <span class="material-symbols-rounded" style="font-size: 14px;">arrow_back</span>
+          <span>BACK</span>
+        </button>
+      </header>
+
+      <div class="ranked-main">
+        <aside class="ranked-sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-title">RANKED INSTANCES</span>
+            <button class="icon-btn" onclick="refresh()">
+              <span class="material-symbols-rounded">refresh</span>
+            </button>
+          </div>
+          <div class="instance-list" id="rankedInstanceList"></div>
+        </aside>
+
+        <aside class="player-profile" id="rankedProfile">
+          <canvas class="player-skin-3d" id="playerSkin3D"></canvas>
+          <div class="player-username" id="rankedUsername">Loading...</div>
+          <div class="player-rank-badge">
+            <span class="rank-text" id="rankedRankText">---</span>
+          </div>
+          <div class="elo-display">
+            <div class="elo-value" id="rankedElo">---</div>
+            <div class="elo-label">ELO RATING</div>
+          </div>
+        </aside>
+        <section class="stats-panel" id="rankedStatsPanel">
+          <h2 class="section-title">SEASON STATS</h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-card-value green" id="statWins">-</div>
+              <div class="stat-card-label">Wins</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value red" id="statLosses">-</div>
+              <div class="stat-card-label">Losses</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" id="statWinrate">-</div>
+              <div class="stat-card-label">Win Rate</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value gold" id="statBestTime">-</div>
+              <div class="stat-card-label">Best Time</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" id="statGames">-</div>
+              <div class="stat-card-label">Games</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" id="statRank">-</div>
+              <div class="stat-card-label">Rank</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" id="statAvgTime">-</div>
+              <div class="stat-card-label">Avg Time</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-value" id="statStreak">-</div>
+              <div class="stat-card-label">Streak</div>
+            </div>
+          </div>
+
+          <h2 class="section-title">RECENT MATCHES</h2>
+          <div class="match-list" id="rankedMatchList"></div>
+        </section>
+      </div>
+
+      <div class="ranked-bottom-bar">
+        <div class="ranked-instance-info">
+          <div class="ranked-instance-name" id="rankedSelectedName">Select a ranked instance</div>
+          <div class="ranked-instance-detail" id="rankedSelectedDetail">-</div>
+        </div>
+        <button class="mc-btn" onclick="openRankedCreateModal()">
+          <span class="material-symbols-rounded" style="font-size: 14px; margin-right: 4px;">add</span>
+          Create Ranked
+        </button>
+        <button class="mc-play-btn" id="rankedPlayBtn" onclick="launchRankedSelected()" disabled>
+          PLAY RANKED
+        </button>
+      </div>
+
+      <footer class="ranked-footer">
+        <span id="rankedSeason">Season --</span>
+        <span id="rankedOnline">-- players online</span>
+      </footer>
+    </div>
+  </div>
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <div class="context-menu" id="contextMenu"></div>
+
+  <div class="toast-container" id="toastContainer"></div>

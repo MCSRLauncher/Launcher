@@ -30,7 +30,7 @@ dependencies {
     implementation("com.google.guava:guava:33.4.8-jre")
 
     implementation("io.github.z4kn4fein:semver:1.4.2")
-
+    implementation("me.friwi:jcefmaven:122.1.10")
     implementation("com.formdev:flatlaf:3.6.1")
     implementation("com.formdev:flatlaf-fonts-roboto:2.137")
     implementation("com.miglayout:miglayout-core:5.3")
@@ -81,4 +81,53 @@ tasks.shadowJar {
     archiveVersion.set("")
     archiveClassifier.set("")
     mergeServiceFiles()
+}
+
+val withFrontend = providers.gradleProperty("withFrontend").map { it.toBoolean() }.orElse(false)
+val frontendDir = layout.projectDirectory.dir("frontend").asFile
+val generatedWebAppDir = layout.buildDirectory.dir("generated-webapp")
+
+val npmInstall = tasks.register<Exec>("npmInstall") {
+    onlyIf { withFrontend.get() && frontendDir.resolve("package.json").exists() }
+    workingDir = frontendDir
+    commandLine = if (System.getProperty("os.name").lowercase().contains("win")) {
+        listOf("cmd", "/c", "npm", "install")
+    } else {
+        listOf("npm", "install")
+    }
+    inputs.file(frontendDir.resolve("package.json"))
+    inputs.file(frontendDir.resolve("package-lock.json"))
+    outputs.dir(frontendDir.resolve("node_modules"))
+}
+
+val buildFrontend = tasks.register<Exec>("buildFrontend") {
+    onlyIf { withFrontend.get() && frontendDir.resolve("package.json").exists() }
+    dependsOn(npmInstall)
+    workingDir = frontendDir
+    commandLine = if (System.getProperty("os.name").lowercase().contains("win")) {
+        listOf("cmd", "/c", "npm", "run", "build")
+    } else {
+        listOf("npm", "run", "build")
+    }
+    inputs.dir(frontendDir.resolve("src"))
+    inputs.file(frontendDir.resolve("package.json"))
+    inputs.file(frontendDir.resolve("vite.config.ts"))
+    outputs.dir(frontendDir.resolve("dist"))
+}
+
+val copyFrontend = tasks.register<Copy>("copyFrontend") {
+    onlyIf { withFrontend.get() }
+    dependsOn(buildFrontend)
+    from(frontendDir.resolve("dist"))
+    into(generatedWebAppDir)
+}
+
+tasks.named<ProcessResources>("processResources") {
+    if (withFrontend.get()) {
+        dependsOn(copyFrontend)
+        exclude("webapp/**")
+        from(generatedWebAppDir) {
+            into("webapp")
+        }
+    }
 }

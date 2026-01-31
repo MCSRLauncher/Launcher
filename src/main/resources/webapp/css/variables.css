@@ -1,0 +1,31 @@
+@font-face {
+  font-family: 'Minecraftia';
+  src: url('../fonts/Minecraftia-Regular.ttf') format('truetype');
+  font-weight: normal;
+}
+
+:root {
+  --sky-top: #78a7ff;
+  --sky-bottom: #c9e4ff;
+  --bg-deep: #0f0f0f;
+  --bg-base: #1a1a1a;
+  --bg-surface: #222222;
+  --bg-elevated: #2a2a2a;
+  --border-dark: #0a0a0a;
+  --border-default: #333333;
+  --mc-green: #86ce34;
+  --mc-green-dark: #3d6d11;
+  --mc-green-darker: #2d5a0d;
+  --mc-green-dim: rgba(134, 206, 52, 0.15);
+  --ranked-gold: #f5c842;
+  --ranked-gold-dark: #c9a227;
+  --ranked-gold-dim: rgba(245, 200, 66, 0.15);
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #606060;
+  --font-pixel: 'Minecraftia', monospace;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --btn-slice: 2;
+  --btn-scale: 4;
+  --btn-border: calc(var(--btn-slice) * var(--btn-scale) * 1px);
+}
