@@ -2,7 +2,6 @@ package com.redlimerl.mcsrlauncher.launcher
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.MCSRLauncher.JSON
-import com.redlimerl.mcsrlauncher.MCSRLauncher.MAIN_FRAME
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.instance.FabricVersionData
 import com.redlimerl.mcsrlauncher.data.instance.LWJGLVersionData
@@ -142,7 +141,7 @@ object InstanceManager {
 
     fun refreshInstanceList() {
         updateInstancesSort()
-        MAIN_FRAME.loadInstanceList()
+        MCSRLauncher.refreshInstanceList()
     }
 
     private fun migrateOldConfig() {

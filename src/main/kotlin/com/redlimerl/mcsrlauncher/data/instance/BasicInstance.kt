@@ -25,6 +25,8 @@ import com.redlimerl.mcsrlauncher.util.AssetUtils
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
 import com.redlimerl.mcsrlauncher.util.SpeedrunUtils
+import com.redlimerl.mcsrlauncher.util.WebLauncherWorker
+import com.redlimerl.mcsrlauncher.webview.WebViewFrame
 import io.github.z4kn4fein.semver.toVersionOrNull
 import kotlinx.coroutines.*
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -190,25 +192,45 @@ data class BasicInstance(
 
     fun launchWithDialog() {
         if (this.isRunning()) return
-        object : LauncherWorker(MCSRLauncher.MAIN_FRAME, I18n.translate("instance.launching"), I18n.translate("message.loading") + "...") {
-            override fun work(dialog: JDialog) {
-                if (options.autoModUpdates) {
-                    val updates = getSpeedRunModUpdates(this)
-                    if (updates.isNotEmpty()) updateSpeedrunMods(this)
-                }
-                this.setState(I18n.translate("text.download.assets") + "...")
-                install(this)
-                this.setProgress(null)
 
-                if (options.clearBeforeLaunch) {
-                    this.setState(I18n.translate("text.clear_worlds") + "...")
-                    clearWorlds(this)
-                }
+        val title = I18n.translate("instance.launching")
+        val desc = I18n.translate("message.loading") + "..."
 
-                this.setState(I18n.translate("instance.launching") + "...")
-                launchInstance(this)
+        val workBlock: (LauncherWorker) -> Unit = { worker ->
+            if (options.autoModUpdates) {
+                val updates = getSpeedRunModUpdates(worker)
+                if (updates.isNotEmpty()) updateSpeedrunMods(worker)
             }
-        }.showDialog().start()
+            worker.setState(I18n.translate("text.download.assets") + "...")
+            install(worker)
+            worker.setProgress(null)
+
+            if (options.clearBeforeLaunch) {
+                worker.setState(I18n.translate("text.clear_worlds") + "...")
+                clearWorlds(worker)
+            }
+
+            worker.setState(I18n.translate("instance.launching") + "...")
+            launchInstance(worker)
+        }
+
+        if (MCSRLauncher.MAIN_WINDOW is WebViewFrame) {
+            object : WebLauncherWorker(title, desc) {
+                override fun work(dialog: JDialog) {
+                    try {
+                        workBlock(this)
+                    } finally {
+                        this.finish()
+                    }
+                }
+            }.start()
+        } else {
+            object : LauncherWorker(MCSRLauncher.MAIN_WINDOW, title, desc) {
+                override fun work(dialog: JDialog) {
+                    workBlock(this)
+                }
+            }.showDialog().start()
+        }
     }
 
     fun getInstanceType(): String {
@@ -217,8 +239,8 @@ data class BasicInstance(
 
     fun getIconResource(): URL? {
         return if (this.mcsrRankedType != null) javaClass.getResource("/icons/mcsrranked.png")
-            else if (this.fabricVersion != null) javaClass.getResource("/icons/fabric.png")
-            else javaClass.getResource("/icons/minecraft.png")
+        else if (this.fabricVersion != null) javaClass.getResource("/icons/fabric.png")
+        else javaClass.getResource("/icons/minecraft.png")
     }
 
     fun isRunning(): Boolean {
@@ -438,7 +460,7 @@ data class BasicInstance(
         return deleteCount.get()
     }
 
-    fun openOptionDialog(window: Window = MCSRLauncher.MAIN_FRAME): InstanceOptionGui {
+    fun openOptionDialog(window: Window = MCSRLauncher.MAIN_WINDOW): InstanceOptionGui {
         if (optionDialog != null) {
             optionDialog?.requestFocus()
         } else {
