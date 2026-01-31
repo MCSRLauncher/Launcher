@@ -2,13 +2,22 @@ package com.redlimerl.mcsrlauncher.util
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher.LOGGER
 import com.redlimerl.mcsrlauncher.network.*
+import org.apache.hc.client5.http.config.RequestConfig
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
 import org.apache.hc.core5.http.ClassicHttpRequest
 import org.apache.hc.core5.http.io.entity.EntityUtils
+import org.apache.hc.core5.util.Timeout
 
 object HttpUtils {
-    private val HTTP_CLIENT: CloseableHttpClient = HttpClientBuilder.create().build()
+    private val HTTP_CLIENT: CloseableHttpClient = HttpClientBuilder.create()
+        .setDefaultRequestConfig(
+            RequestConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(20))
+                .setResponseTimeout(Timeout.ofSeconds(30))
+                .build()
+        )
+        .build()
 
     fun makeRawRequest(request: ClassicHttpRequest, worker: LauncherWorker): RawResponseResult {
         LOGGER.debug("Requesting JSON to: " + request.uri.toString())

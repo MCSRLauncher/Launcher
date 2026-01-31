@@ -6,6 +6,7 @@ import com.formdev.flatlaf.fonts.roboto.FlatRobotoFont
 import com.github.ajalt.clikt.core.main
 import com.redlimerl.mcsrlauncher.data.device.RuntimeOSType
 import com.redlimerl.mcsrlauncher.data.launcher.LauncherOptions
+import com.redlimerl.mcsrlauncher.bridge.BridgeRouter
 import com.redlimerl.mcsrlauncher.gui.MainMenuGui
 import com.redlimerl.mcsrlauncher.instance.InstanceProcess
 import com.redlimerl.mcsrlauncher.launcher.*
@@ -13,6 +14,9 @@ import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
 import com.redlimerl.mcsrlauncher.util.OSUtils
 import com.redlimerl.mcsrlauncher.util.UpdaterUtils
+import com.redlimerl.mcsrlauncher.webview.WebAppServer
+import com.redlimerl.mcsrlauncher.webview.WebViewFrame
+import com.redlimerl.mcsrlauncher.webview.WebViewManager
 import kotlinx.serialization.json.Json
 import org.apache.commons.io.FileUtils
 import org.apache.logging.log4j.LogManager
@@ -28,6 +32,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import javax.swing.JFrame
 import javax.swing.JDialog
 import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
@@ -47,14 +52,25 @@ object MCSRLauncher {
     val GAME_PROCESSES = arrayListOf<InstanceProcess>()
     val JSON = Json { ignoreUnknownKeys = true; prettyPrint = true }
     lateinit var MAIN_FRAME: MainMenuGui private set
+    lateinit var MAIN_WINDOW: JFrame private set
     lateinit var options: LauncherOptions private set
     val SCHEDULER: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
     private val LOCK_FILE = BASE_PATH.resolve("_app.lock").toFile()
     private val PORT_FILE = BASE_PATH.resolve("_app.port").toFile()
+    private var webAppServer: WebAppServer? = null
+
+    fun refreshInstanceList() {
+        if (::MAIN_FRAME.isInitialized) {
+            MAIN_FRAME.loadInstanceList()
+        }
+    }
 
     @JvmStatic
     fun main(args: Array<String>) {
+        val useWebUi = !args.contains("--swing") && System.getProperty("mcsrlauncher.ui") != "swing"
+        val filteredArgs = args.filterNot { it == "--webui" || it == "--swing" }.toTypedArray()
+
         if (!LauncherOptions.path.toFile().exists() && !checkPathIsEmpty()) {
             val updateConfirm = JOptionPane.showConfirmDialog(null, "This directory contains files that are not related to the launcher.\nRunning the launcher here may create additional files in this folder, which could cause unexpected issues.\nDo you still want to continue?", "Warning!", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
             if (updateConfirm != JOptionPane.YES_OPTION) return
@@ -93,6 +109,8 @@ object MCSRLauncher {
             val lock = lockChannel.tryLock()
             Runtime.getRuntime().addShutdownHook(Thread {
                 try {
+                    webAppServer?.stop()
+                    WebViewManager.shutdown()
                     lock.release()
                     lockChannel.close()
                 } catch (ignored: Exception) {}
@@ -180,12 +198,50 @@ object MCSRLauncher {
                     }
                 }
 
+                var webStartUrl: String? = null
+                if (useWebUi) {
+                    this.setState("Initializing Web UI...")
+                    try {
+                        val router = BridgeRouter()
+                        WebViewManager.setBridgeHandler { request, callback ->
+                            router.handleRequest(request, callback)
+                        }
+
+                        WebViewManager.initialize(BASE_PATH.resolve("jcef")) { msg, percent ->
+                            this.setState(msg, log = false)
+                            if (percent in 0..100) this.setProgress(percent / 100.0) else this.setProgress(null)
+                        }
+
+                        val overrideUrl = System.getProperty("mcsrlauncher.webui.url")?.takeIf { it.isNotBlank() }
+                        if (overrideUrl != null) {
+                            webStartUrl = overrideUrl
+                        } else {
+                            webAppServer = WebAppServer.start()
+                            webStartUrl = webAppServer!!.baseUrl
+                        }
+                    } catch (e: Exception) {
+                        LOGGER.error("Failed to initialize Web UI, falling back to Swing UI", e)
+                        webStartUrl = null
+                    } finally {
+                        this.setProgress(null)
+                    }
+                }
+
                 dialog.dispose()
 
                 LOGGER.warn("Setup gui")
                 SwingUtilities.invokeLater {
-                    MAIN_FRAME = MainMenuGui()
-                    ArgumentHandler().main(args)
+                    if (useWebUi && webStartUrl != null && WebViewManager.isInitialized()) {
+                        val frame = WebViewFrame(webStartUrl!!)
+                        frame.initBrowser()
+                        frame.isVisible = true
+                        MAIN_WINDOW = frame
+                    } else {
+                        MAIN_FRAME = MainMenuGui()
+                        MAIN_WINDOW = MAIN_FRAME
+                    }
+
+                    ArgumentHandler().main(filteredArgs)
 
                     LOGGER.info("Setup launch arguments")
                     thread {
@@ -194,7 +250,8 @@ object MCSRLauncher {
                             ObjectInputStream(client.getInputStream()).use { inputStream ->
                                 @Suppress("UNCHECKED_CAST") val receivedArgs = inputStream.readObject() as Array<String>
                                 LOGGER.debug("Argument received: {}", receivedArgs)
-                                ArgumentHandler().main(receivedArgs)
+                                val receivedFiltered = receivedArgs.filterNot { it == "--webui" }.toTypedArray()
+                                ArgumentHandler().main(receivedFiltered)
                             }
                             client.close()
                         }

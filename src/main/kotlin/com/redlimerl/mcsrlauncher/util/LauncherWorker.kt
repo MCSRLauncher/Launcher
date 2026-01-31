@@ -41,6 +41,21 @@ abstract class LauncherWorker(
     }
     private val subLabel = JLabel("", SwingConstants.CENTER).apply { isVisible = false }
     private val southPanel = JPanel(BorderLayout())
+
+    private fun applyState(string: String?) {
+        label.text = string ?: ""
+        refreshDialogWidth()
+    }
+
+    private fun applyProgress(value: Double?) {
+        if (value == null) {
+            progressBar.isVisible = false
+        } else {
+            progressBar.isVisible = true
+            progressBar.value = (value * 100).toInt()
+        }
+    }
+
     val dialog = (if (parent is JFrame?) JDialog(parent, title) else if (parent is JDialog) JDialog(parent, title) else throw IllegalArgumentException("parent should be JFrame, JDialog or null")).apply {
         layout = BorderLayout()
         setSize(300, 150)
@@ -52,7 +67,7 @@ abstract class LauncherWorker(
 
         add(label, BorderLayout.CENTER)
         southPanel.add(subLabel, BorderLayout.NORTH)
-        setProgress(null)
+        applyProgress(null)
         southPanel.add(progressBar, BorderLayout.CENTER)
         add(southPanel, BorderLayout.SOUTH)
 
@@ -66,7 +81,7 @@ abstract class LauncherWorker(
     }
 
     init {
-        setState(description)
+        applyState(description)
     }
 
 
@@ -130,14 +145,13 @@ abstract class LauncherWorker(
         this.dialog.pack()
     }
 
-    fun setState(string: String?, log: Boolean = true): LauncherWorker {
+    open fun setState(string: String?, log: Boolean = true): LauncherWorker {
         if (!string.isNullOrBlank() && log) MCSRLauncher.LOGGER.info(string)
-        label.text = string ?: ""
-        refreshDialogWidth()
+        applyState(string)
         return this
     }
 
-    fun setSubText(string: String?): LauncherWorker {
+    open fun setSubText(string: String?): LauncherWorker {
         subLabel.text = if (string == null) "" else "   $string   "
         if (!subLabel.isVisible && subLabel.text.isNotBlank()) refreshDialogWidth()
         return this
@@ -170,13 +184,8 @@ abstract class LauncherWorker(
         return this.setProgress(value.toDouble())
     }
 
-    fun setProgress(value: Double?): LauncherWorker {
-        if (value == null) {
-            progressBar.isVisible = false
-        } else {
-            progressBar.isVisible = true
-            progressBar.value = (value * 100).toInt()
-        }
+    open fun setProgress(value: Double?): LauncherWorker {
+        applyProgress(value)
         return this
     }
 

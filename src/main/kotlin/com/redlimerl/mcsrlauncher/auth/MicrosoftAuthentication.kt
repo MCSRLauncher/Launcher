@@ -64,30 +64,64 @@ data class MSTokenReceiverAuth(
 
     companion object {
         fun create(worker: LauncherWorker, deviceCode: MSDeviceCodeAuth, nextInterval: Long = 10000): MSTokenReceiverAuth {
-            MCSRLauncher.LOGGER.info("Getting token from MSA... Delay: ${nextInterval}ms")
-            Thread.sleep(nextInterval)
-            if (worker.isCancelled()) throw InterruptedException("Cancelled")
+            val deadlineMs = System.currentTimeMillis() + (deviceCode.expires * 1000L)
+            var currentInterval = nextInterval
 
-            val postRequest = HttpPost(MicrosoftAuthentication.TOKEN_ACCESS_URL)
-            postRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
-            postRequest.setHeader("Accept", "application/json")
-            postRequest.entity = UrlEncodedFormEntity(listOf(
-                BasicNameValuePair("client_id", MicrosoftAuthentication.getAzureClientId()),
-                BasicNameValuePair("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
-                BasicNameValuePair("device_code", deviceCode.deviceCode)
-            ))
+            while (true) {
+                val remainingMs = deadlineMs - System.currentTimeMillis()
+                if (remainingMs <= 0) throw IllegalRequestResponseException("MSA device-code expired")
 
-            val response = HttpUtils.makeJsonRequest(postRequest, worker)
+                val delayMs = currentInterval.coerceAtMost(remainingMs)
+                MCSRLauncher.LOGGER.info("Getting token from MSA... Delay: ${delayMs}ms")
+                Thread.sleep(delayMs)
+                if (worker.isCancelled()) throw InterruptedException("Cancelled")
 
-            if (!response.hasSuccess()) {
+                val postRequest = HttpPost(MicrosoftAuthentication.TOKEN_ACCESS_URL)
+                postRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
+                postRequest.setHeader("Accept", "application/json")
+                postRequest.entity = UrlEncodedFormEntity(
+                    listOf(
+                        BasicNameValuePair("client_id", MicrosoftAuthentication.getAzureClientId()),
+                        BasicNameValuePair("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+                        BasicNameValuePair("device_code", deviceCode.deviceCode)
+                    )
+                )
+
+                val response = try {
+                    HttpUtils.makeJsonRequest(postRequest, worker)
+                } catch (e: java.net.SocketTimeoutException) {
+                    MCSRLauncher.LOGGER.warn("MSA token request timed out, retrying...", e)
+                    currentInterval = (currentInterval + 2000).coerceAtMost(30000)
+                    continue
+                } catch (e: java.io.IOException) {
+                    MCSRLauncher.LOGGER.warn("MSA token request failed, retrying...", e)
+                    currentInterval = (currentInterval + 2000).coerceAtMost(30000)
+                    continue
+                }
+
+                if (response.hasSuccess()) return response.get()
+
+                if (response.result == null) {
+                    throw IllegalRequestResponseException("Failed to get MSA Token (HTTP ${response.code})")
+                }
+
                 val errorType = response.get<MSAuthenticationError>()
-                return when(errorType.error) {
-                    "authorization_pending" -> create(worker, deviceCode, deviceCode.interval * 1000L)
-                    "slow_down" -> create(worker, deviceCode, nextInterval + 5000)
-                    else -> throw IllegalRequestResponseException("Failed to get MSA Token")
+                MCSRLauncher.LOGGER.debug("MSA device-code poll failed: ${errorType.error} (HTTP ${response.code})")
+                when (errorType.error) {
+                    "authorization_pending" -> {
+                        currentInterval = (deviceCode.interval * 1000L).coerceAtLeast(1000L)
+                        continue
+                    }
+                    "slow_down" -> {
+                        currentInterval = (currentInterval + 5000).coerceAtMost(60000)
+                        continue
+                    }
+                    "expired_token" -> throw IllegalRequestResponseException("MSA device-code expired")
+                    "authorization_declined" -> throw IllegalRequestResponseException("MSA authorization declined")
+                    "bad_verification_code" -> throw IllegalRequestResponseException("Invalid MSA device-code")
+                    else -> throw IllegalRequestResponseException(errorType.errorDescription ?: "Failed to get MSA Token")
                 }
             }
-            return response.get<MSTokenReceiverAuth>()
         }
     }
 
