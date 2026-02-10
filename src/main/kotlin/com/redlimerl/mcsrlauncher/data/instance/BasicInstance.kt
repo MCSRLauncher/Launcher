@@ -37,10 +37,7 @@ import java.awt.Window
 import java.io.File
 import java.io.IOException
 import java.net.URL
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
+import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributeView
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
@@ -345,7 +342,10 @@ data class BasicInstance(
 
     fun save() {
         val configJson = this.getInstancePath().resolve("instance.json")
-        configJson.toFile().writeText(MCSRLauncher.JSON.encodeToString(this))
+        val configBakJson = this.getInstancePath().resolve("instance.bak.json")
+        val jsonData = MCSRLauncher.JSON.encodeToString(this)
+        configBakJson.toFile().writeText(jsonData)
+        Files.move(configBakJson, configJson, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
     }
 
     /**
