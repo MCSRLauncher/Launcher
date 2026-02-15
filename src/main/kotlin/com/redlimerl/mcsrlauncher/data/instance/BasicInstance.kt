@@ -1,6 +1,7 @@
 package com.redlimerl.mcsrlauncher.data.instance
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
+import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.mcsrranked.MCSRRankedPackType
 import com.redlimerl.mcsrlauncher.data.meta.LauncherTrait
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
@@ -21,10 +22,7 @@ import com.redlimerl.mcsrlauncher.instance.mod.ModDownloadMethod
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.network.FileDownloader
-import com.redlimerl.mcsrlauncher.util.AssetUtils
-import com.redlimerl.mcsrlauncher.util.I18n
-import com.redlimerl.mcsrlauncher.util.LauncherWorker
-import com.redlimerl.mcsrlauncher.util.SpeedrunUtils
+import com.redlimerl.mcsrlauncher.util.*
 import io.github.z4kn4fein.semver.toVersionOrNull
 import kotlinx.coroutines.*
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -39,13 +37,12 @@ import java.awt.Window
 import java.io.File
 import java.io.IOException
 import java.net.URL
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
+import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributeView
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.JDialog
 import javax.swing.JOptionPane
@@ -72,19 +69,32 @@ data class BasicInstance(
 
     @Transient
     var lastLaunch: Long = System.currentTimeMillis()
+        private set
+
+    @Transient
+    var lastPlaytimeUpdate: Long = System.currentTimeMillis()
+        private set
 
     @Transient
     var clearingWorlds: Boolean = false
+        private set
 
     @Transient
     val logViewerPanel: LogViewerPanel = LogViewerPanel(this.getGamePath())
+
+    @Transient
+    private var schedulerFuture: ScheduledFuture<*>? = null
 
     fun getInstancePath(): Path {
         return InstanceManager.INSTANCES_PATH.resolve(id)
     }
 
     fun getGamePath(): Path {
-        return this.getInstancePath().resolve(".minecraft")
+        return if ((OSUtils.getOSType() == DeviceOSType.WINDOWS || (this.getInstancePath().resolve(".minecraft").exists())) && !this.getInstancePath().resolve("minecraft").exists()) {
+            this.getInstancePath().resolve(".minecraft")
+        } else {
+            this.getInstancePath().resolve("minecraft")
+        }
     }
 
     fun getModsPath(): Path {
@@ -111,6 +121,12 @@ data class BasicInstance(
         getProcess()?.syncLogViewer(logViewerPanel)
         optionDialog?.setLauncherLaunched(true)
         lastLaunch = System.currentTimeMillis()
+        lastPlaytimeUpdate = lastLaunch
+        schedulerFuture = MCSRLauncher.SCHEDULER.scheduleWithFixedDelay({
+            playTime += (System.currentTimeMillis() - lastPlaytimeUpdate) / 1000
+            lastPlaytimeUpdate = System.currentTimeMillis()
+            if (this.isRunning()) this.save()
+        }, 30, 30, TimeUnit.SECONDS)
     }
 
     fun onProcessExit(code: Int, exitByUser: Boolean) {
@@ -118,8 +134,7 @@ data class BasicInstance(
         FileUtils.deleteDirectory(this.getNativePath().toFile())
         InstanceManager.refreshInstanceList()
         optionDialog?.setLauncherLaunched(false)
-        playTime += (System.currentTimeMillis() - lastLaunch) / 1000
-        this.save()
+        schedulerFuture?.cancel(false)
 
         if (code != 0) {
             val optionDialog = openOptionDialog()
@@ -327,7 +342,10 @@ data class BasicInstance(
 
     fun save() {
         val configJson = this.getInstancePath().resolve("instance.json")
-        configJson.toFile().writeText(MCSRLauncher.JSON.encodeToString(this))
+        val configBakJson = this.getInstancePath().resolve("instance.bak.json")
+        val jsonData = MCSRLauncher.JSON.encodeToString(this)
+        configBakJson.toFile().writeText(jsonData)
+        Files.move(configBakJson, configJson, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
     }
 
     /**

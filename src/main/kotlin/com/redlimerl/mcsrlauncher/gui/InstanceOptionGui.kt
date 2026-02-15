@@ -357,7 +357,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
                 override fun work(dialog: JDialog) {
                     val maps = MetaManager.getVersionMeta<MinecraftMapsMetaFile>(MetaUniqueID.PRACTICE_MAPS, "verified", this)!!
                     dialog.dispose()
-                    MapBrowserGui(this@InstanceOptionGui, I18n.translate("text.download.practice_maps"), maps.maps, instance)
+                    SpeedrunMapBrowseGui(this@InstanceOptionGui, I18n.translate("text.download.practice_maps"), maps.maps, instance)
                 }
             }.showDialog().start()
         }
