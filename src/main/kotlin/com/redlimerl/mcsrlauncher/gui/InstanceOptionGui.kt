@@ -5,7 +5,11 @@ import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMapsMetaFile
+<<<<<<< HEAD
 import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
+=======
+import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunToolsMetaFile
+>>>>>>> upstream/main
 import com.redlimerl.mcsrlauncher.gui.component.InstanceGroupComboBox
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
@@ -357,7 +361,16 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
                 override fun work(dialog: JDialog) {
                     val maps = MetaManager.getVersionMeta<MinecraftMapsMetaFile>(MetaUniqueID.PRACTICE_MAPS, "verified", this)!!
                     dialog.dispose()
-                    MapBrowserGui(this@InstanceOptionGui, I18n.translate("text.download.practice_maps"), maps.maps, instance)
+                    SpeedrunMapBrowseGui(this@InstanceOptionGui, I18n.translate("text.download.practice_maps"), maps.maps, instance)
+                }
+            }.showDialog().start()
+        }
+        browseToolsButton.addActionListener {
+            object : LauncherWorker(this@InstanceOptionGui, I18n.translate("message.loading")) {
+                override fun work(dialog: JDialog) {
+                    val tools = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "verified", this)!!
+                    dialog.dispose()
+                    SpeedrunToolsBrowseGui(this@InstanceOptionGui, I18n.translate("text.download.practice_maps"), tools.programs, instance)
                 }
             }.showDialog().start()
         }
