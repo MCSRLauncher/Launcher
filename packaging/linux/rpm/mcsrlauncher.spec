@@ -53,5 +53,5 @@ chmod 755 %{buildroot}%{_bindir}/%{name}
 %{_datadir}/icons/hicolor/128x128/apps/%{name}.png
 
 %changelog
-* Sun Feb 16 2026 flammablebunny <theflammablebunny@gmail.com> - 0.7.1~beta-1
+* Mon Feb 16 2026 flammablebunny <theflammablebunny@gmail.com> - 0.7.1~beta-1
 - Initial RPM release
