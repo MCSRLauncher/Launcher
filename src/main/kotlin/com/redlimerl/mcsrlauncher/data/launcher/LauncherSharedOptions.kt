@@ -9,6 +9,7 @@ interface LauncherSharedOptions {
     var resolutionWidth: Int
     var resolutionHeight: Int
     var customGLFWPath: String
+    var useSystemGLFW: Boolean
     var wrapperCommand: String
     var preLaunchCommand: String
     var postExitCommand: String
@@ -16,6 +17,7 @@ interface LauncherSharedOptions {
     var enableMangoHud: Boolean
     var useDiscreteGpu: Boolean
     var useZink: Boolean
+    var disableGlThreadedOpt: Boolean
     var enableEnvironmentVariables: Boolean
     var environmentVariables: MutableMap<String, String>
 }

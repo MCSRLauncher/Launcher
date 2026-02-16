@@ -14,6 +14,7 @@ data class InstanceOptions(
     var useLauncherWorkarounds: Boolean = true,
 
     override var customGLFWPath: String = "",
+    override var useSystemGLFW: Boolean = false,
     override var wrapperCommand: String = "",
     override var preLaunchCommand: String = "",
     override var postExitCommand: String = "",
@@ -21,6 +22,7 @@ data class InstanceOptions(
     override var enableMangoHud: Boolean = false,
     override var useDiscreteGpu: Boolean = false,
     override var useZink: Boolean = false,
+    override var disableGlThreadedOpt: Boolean = false,
     override var enableEnvironmentVariables: Boolean = false,
     override var environmentVariables: MutableMap<String, String> = mutableMapOf(),
 
