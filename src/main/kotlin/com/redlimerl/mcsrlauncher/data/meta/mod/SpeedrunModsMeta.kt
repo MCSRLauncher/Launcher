@@ -12,7 +12,7 @@ data class SpeedrunModMeta(
     @SerialName("modid") val modId: String,
     val name: String,
     val description: String,
-    val sources: String,
+    val homepage: String,
     val versions: List<SpeedrunModVersion>,
     val traits: List<SpeedrunModTrait> = listOf(),
     val incompatibilities: List<String> = listOf(),
@@ -44,6 +44,7 @@ data class SpeedrunModVersion(
     @SerialName("target_version") val gameVersions: List<String>,
     val version: String,
     val url: String,
+    @SerialName("sha512")
     val hash: String,
     val filename: String,
     val intermediary: List<IntermediaryType>,
