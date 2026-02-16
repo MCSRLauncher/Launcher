@@ -31,11 +31,11 @@ in
 
 stdenv.mkDerivation rec {
   pname = "mcsrlauncher";
-  version = "0.7.1-beta";
+  version = "0.7.2-beta";
 
   src = fetchurl {
     url = "https://github.com/MCSRLauncher/Launcher/releases/download/${version}/MCSRLauncher.jar";
-    sha256 = "sha256-LyN4MwWuETikwqfKQepg6AQfgOFUPrYsv1FUNptGESw=";
+    sha256 = "sha256-NIaBbUW5X7Jsl/tnLXDFoJSBt0zpgkiT8UY7vhRaeKE=";
   };
 
   dontUnpack = true;
