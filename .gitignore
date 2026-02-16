@@ -43,4 +43,5 @@ bin/
 
 ### Project ###
 /launcher/
+/run/
 /logs/

@@ -1,22 +1,16 @@
 package com.redlimerl.mcsrlauncher.gui.component
 
+import com.redlimerl.mcsrlauncher.MCSRLauncher
+import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
-import com.redlimerl.mcsrlauncher.data.launcher.LauncherOptions
-import com.redlimerl.mcsrlauncher.data.instance.InstanceOptions
+import com.redlimerl.mcsrlauncher.data.launcher.LauncherSharedOptions
 import com.redlimerl.mcsrlauncher.util.I18n
+import java.awt.*
 import javax.swing.*
-import java.awt.BorderLayout
-import java.awt.Dimension
-import java.awt.GridBagLayout
-import java.awt.GridBagConstraints
-import java.awt.Insets
-import java.awt.Rectangle
 
 class WorkaroundSettingsPanel(
     parent: JDialog,
     private val instance: BasicInstance?,
-    private val instanceOptions: InstanceOptions,
-    private val options: Any,
     private val onUpdate: () -> Unit
 ) : JPanel(), Scrollable {
 
@@ -125,12 +119,22 @@ class WorkaroundSettingsPanel(
         })
         
         fun commandExists(cmd: String): Boolean {
-            return try {
-                val process = ProcessBuilder("which", cmd).redirectErrorStream(true).start()
-                process.waitFor()
-                process.exitValue() == 0
-            } catch (_: Exception) {
-                false
+            if (DeviceOSType.WINDOWS.isOn()) {
+                return try {
+                    val process = ProcessBuilder("where", cmd).redirectErrorStream(true).start()
+                    process.waitFor()
+                    process.exitValue() == 0
+                } catch (_: Exception) {
+                    false
+                }
+            } else {
+                return try {
+                    val process = ProcessBuilder("which", cmd).redirectErrorStream(true).start()
+                    process.waitFor()
+                    process.exitValue() == 0
+                } catch (_: Exception) {
+                    false
+                }
             }
         }
 
@@ -150,7 +154,7 @@ class WorkaroundSettingsPanel(
             )
             if (candidates.any { java.nio.file.Files.exists(java.nio.file.Path.of(it)) }) return true
 
-            return try { ProcessBuilder("vulkaninfo").redirectErrorStream(true).start().waitFor() == 0 } catch (_: Exception) { false }
+            return commandExists("vulkaninfo")
         }
 
         val zinkAvailable = detectZink()
@@ -172,10 +176,8 @@ class WorkaroundSettingsPanel(
         }
 
         fun saveFields() {
-            when (options) {
-                is LauncherOptions -> saveLauncherOptions(options)
-                is InstanceOptions -> saveInstanceOptions(options)
-            }
+            if (instance == null) saveLauncherOptions()
+            else saveInstanceOptions(instance)
             onUpdate()
         }
 
@@ -194,10 +196,8 @@ class WorkaroundSettingsPanel(
 
         add(formPanel, BorderLayout.CENTER)
 
-        when (options) {
-            is LauncherOptions -> loadLauncherOptions(options)
-            is InstanceOptions -> loadInstanceOptions(options)
-        }
+        if (instance == null) loadOptions(MCSRLauncher.options, false)
+        else loadOptions(instance.options, instance.options.useLauncherWorkarounds)
 
         listOf(glfPathField, wrapperCommandField, preLaunchField, postExitField).forEach { field ->
             field.addActionListener { saveFields() }
@@ -210,22 +210,7 @@ class WorkaroundSettingsPanel(
         }
     }
 
-    private fun loadLauncherOptions(opt: LauncherOptions) {
-        glfPathField.text = opt.customGLFWPath
-        wrapperCommandField.text = opt.wrapperCommand
-        preLaunchField.text = opt.preLaunchCommand
-        postExitField.text = opt.postExitCommand
-
-        feralBox.isSelected = opt.enableFeralGamemode
-        mangoBox.isSelected = opt.enableMangoHud
-        discreteBox.isSelected = opt.useDiscreteGpu
-        zinkBox.isSelected = opt.useZink
-
-        envVarsPanel.setEnvEnabled(opt.enableEnvironmentVariables)
-        envVarsPanel.setEnvironmentVariables(opt.environmentVariables)
-    }
-
-    private fun loadInstanceOptions(opt: InstanceOptions) {
+    private fun loadOptions(opt: LauncherSharedOptions, useLauncherOption: Boolean) {
         glfPathField.text = opt.customGLFWPath
         wrapperCommandField.text = opt.wrapperCommand
         preLaunchField.text = opt.preLaunchCommand
@@ -239,10 +224,11 @@ class WorkaroundSettingsPanel(
         envVarsPanel.setEnvEnabled(opt.enableEnvironmentVariables)
         envVarsPanel.setEnvironmentVariables(opt.environmentVariables)
 
-        applyLauncherSettings(opt.useLauncherWorkarounds)
+        applyLauncherSettings(useLauncherOption)
     }
 
-    private fun saveLauncherOptions(opt: LauncherOptions) {
+    private fun saveLauncherOptions() {
+        val opt = MCSRLauncher.options
         opt.customGLFWPath = glfPathField.text.trim()
         opt.wrapperCommand = wrapperCommandField.text.trim()
         opt.preLaunchCommand = preLaunchField.text.trim()
@@ -256,47 +242,33 @@ class WorkaroundSettingsPanel(
         opt.save()
     }
 
-    private fun saveInstanceOptions(opt: InstanceOptions) {
-        opt.customGLFWPath = glfPathField.text.trim()
-        opt.wrapperCommand = wrapperCommandField.text.trim()
-        opt.preLaunchCommand = preLaunchField.text.trim()
-        opt.postExitCommand = postExitField.text.trim()
-        opt.enableFeralGamemode = feralBox.isSelected
-        opt.enableMangoHud = mangoBox.isSelected
-        opt.useDiscreteGpu = discreteBox.isSelected
-        opt.useZink = zinkBox.isSelected
-        opt.enableEnvironmentVariables = envVarsPanel.isEnvEnabled()
-        opt.environmentVariables = envVarsPanel.getEnvironmentVariables()
-
-        try {
-            val instanceId = (try { instance?.id?.takeIf { it.isNotBlank() } } catch (_: Exception) { null }) ?: "unknown_instance"
-            val instanceDir = com.redlimerl.mcsrlauncher.launcher.InstanceManager.INSTANCES_PATH.resolve(instanceId)
-            val configPath = instanceDir.resolve("instance.json")
-
-            instanceDir.toFile().mkdirs()
-            val jsonText = com.redlimerl.mcsrlauncher.MCSRLauncher.JSON.encodeToString(opt)
-            configPath.toFile().writeText(jsonText)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+    private fun saveInstanceOptions(instance: BasicInstance) {
+        instance.options.customGLFWPath = glfPathField.text.trim()
+        instance.options.wrapperCommand = wrapperCommandField.text.trim()
+        instance.options.preLaunchCommand = preLaunchField.text.trim()
+        instance.options.postExitCommand = postExitField.text.trim()
+        instance.options.enableFeralGamemode = feralBox.isSelected
+        instance.options.enableMangoHud = mangoBox.isSelected
+        instance.options.useDiscreteGpu = discreteBox.isSelected
+        instance.options.useZink = zinkBox.isSelected
+        instance.options.enableEnvironmentVariables = envVarsPanel.isEnvEnabled()
+        instance.options.environmentVariables = envVarsPanel.getEnvironmentVariables()
+        instance.save()
     }
 
 
     fun applyLauncherSettings(useLauncher: Boolean) {
-        if (options !is InstanceOptions) return
-        val launcher = LauncherOptions.load()
-
         if (useLauncher) {
-            glfPathField.text = launcher.customGLFWPath
-            wrapperCommandField.text = launcher.wrapperCommand
-            preLaunchField.text = launcher.preLaunchCommand
-            postExitField.text = launcher.postExitCommand
-            feralBox.isSelected = launcher.enableFeralGamemode
-            mangoBox.isSelected = launcher.enableMangoHud
-            discreteBox.isSelected = launcher.useDiscreteGpu
-            zinkBox.isSelected = launcher.useZink
-            envVarsPanel.setEnvEnabled(launcher.enableEnvironmentVariables)
-            envVarsPanel.setEnvironmentVariables(launcher.environmentVariables)
+            glfPathField.text = MCSRLauncher.options.customGLFWPath
+            wrapperCommandField.text = MCSRLauncher.options.wrapperCommand
+            preLaunchField.text = MCSRLauncher.options.preLaunchCommand
+            postExitField.text = MCSRLauncher.options.postExitCommand
+            feralBox.isSelected = MCSRLauncher.options.enableFeralGamemode
+            mangoBox.isSelected = MCSRLauncher.options.enableMangoHud
+            discreteBox.isSelected = MCSRLauncher.options.useDiscreteGpu
+            zinkBox.isSelected = MCSRLauncher.options.useZink
+            envVarsPanel.setEnvEnabled(MCSRLauncher.options.enableEnvironmentVariables)
+            envVarsPanel.setEnvironmentVariables(MCSRLauncher.options.environmentVariables)
         }
 
         val editable = !useLauncher

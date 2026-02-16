@@ -38,21 +38,6 @@ data class LauncherOptions(
 
     companion object {
         val path: Path = MCSRLauncher.BASE_PATH.resolve("options.json")
-        fun load(): LauncherOptions {
-            val file = path.toFile()
-            return if (file.exists()) {
-                val text = file.readText(Charsets.UTF_8)
-                val json = Json {
-                    ignoreUnknownKeys = true
-                    prettyPrint = true
-                    encodeDefaults = true
-                }
-                json.decodeFromString<LauncherOptions>(text)
-            } else {
-                LauncherOptions()
-            }
-        }
-
     }
 
     fun save() {

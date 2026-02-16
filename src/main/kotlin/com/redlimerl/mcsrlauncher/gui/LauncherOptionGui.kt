@@ -1,9 +1,7 @@
 package com.redlimerl.mcsrlauncher.gui
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
-import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.launcher.LauncherLanguage
-import com.redlimerl.mcsrlauncher.data.instance.InstanceOptions
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.LogViewerPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
@@ -18,7 +16,6 @@ import java.awt.Dimension
 import javax.swing.JDialog
 import javax.swing.JFrame
 import javax.swing.JOptionPane
-import javax.swing.JTabbedPane
 import javax.swing.SpinnerNumberModel
 import kotlin.math.min
 
@@ -109,24 +106,9 @@ class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : Lau
     }
 
     private fun initWorkaroundsTab() {
-        if (DeviceOSType.WINDOWS.isOn()) {
-            val parent = tabWorkaroundScrollPane.parent
-            if (parent is JTabbedPane) {
-                for (i in 0 until parent.tabCount) {
-                    if (parent.getComponentAt(i) == tabWorkaroundScrollPane) {
-                        parent.removeTabAt(i)
-                        break
-                    }
-                }
-            }
-            return
-        }
-
         val workaroundPanel = WorkaroundSettingsPanel(
             this,
-            null,
-            InstanceOptions(),
-            MCSRLauncher.options
+            null
         ) {
             MCSRLauncher.options.save()
         }

@@ -1,15 +1,14 @@
 package com.redlimerl.mcsrlauncher.gui
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
-import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMapsMetaFile
 import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunToolsMetaFile
-import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.InstanceGroupComboBox
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
+import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
 import com.redlimerl.mcsrlauncher.instance.mod.ModData
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
@@ -24,7 +23,6 @@ import java.awt.dnd.DnDConstants
 import java.awt.dnd.DropTarget
 import java.awt.dnd.DropTargetDragEvent
 import java.awt.dnd.DropTargetDropEvent
-import java.awt.Window
 import java.awt.event.WindowEvent
 import java.awt.event.WindowFocusListener
 import java.io.File
@@ -394,21 +392,9 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
     }
 
     private fun initWorkaroundsTab() {
-        if (DeviceOSType.WINDOWS.isOn()) {
-            for (i in 0 until optionTab.tabCount) {
-                if (optionTab.getComponentAt(i) == workaroundScrollPane) {
-                    optionTab.removeTabAt(i)
-                    break
-                }
-            }
-            return
-        }
-
         val workaroundPanel = WorkaroundSettingsPanel(
             this,
             instance,
-            instance.options,
-            instance.options
         ) {
             instance.save()
         }
