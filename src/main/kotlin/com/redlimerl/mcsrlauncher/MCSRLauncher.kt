@@ -18,7 +18,6 @@ import org.apache.commons.io.FileUtils
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
 import org.apache.logging.log4j.core.LoggerContext
-import org.apache.logging.log4j.core.layout.PatternLayout
 import java.io.*
 import java.net.ServerSocket
 import java.net.Socket
@@ -61,12 +60,11 @@ object MCSRLauncher {
         }
 
         LOGGER = LogManager.getLogger(APP_NAME).also {
-            val mainLogger = (it as org.apache.logging.log4j.core.Logger)
             val ctx = LogManager.getContext(false) as LoggerContext
             val config = ctx.configuration
             val rootLogger = config.rootLogger
 
-            LOG_APPENDER = LauncherLogAppender(mainLogger.appenders.values.first().layout as PatternLayout)
+            LOG_APPENDER = LauncherLogAppender()
             LOG_APPENDER.start()
 
             rootLogger.addAppender(LOG_APPENDER, null, null)

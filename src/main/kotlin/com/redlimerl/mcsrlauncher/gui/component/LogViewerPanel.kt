@@ -164,8 +164,8 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
                     string.contains("DEBUG", true) -> DEBUG_STYLE
                     else -> DEFAULT_STYLE
                 }
-                styleRanges.add(Triple(currentOffsetInBatch, lineText.length + 1, styleToApply)) // +1 for the newline
-                textToInsert.append(lineText).append("\n") // Append newline explicitly
+                styleRanges.add(Triple(currentOffsetInBatch, lineText.length + 1, styleToApply))
+                textToInsert.append(lineText).append("\n")
                 currentOffsetInBatch += lineText.length + 1
             }
         }
@@ -244,7 +244,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
                 string.contains("DEBUG", true) -> DEBUG_STYLE
                 else -> DEFAULT_STYLE
             }
-            doc.insertString(doc.length, string + (if (string.endsWith("\n")) "" else "\n"), styleToApply)
+            doc.insertString(doc.length, string, styleToApply)
         }
     }
 
