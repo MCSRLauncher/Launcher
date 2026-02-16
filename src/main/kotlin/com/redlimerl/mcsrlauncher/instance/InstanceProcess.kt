@@ -68,6 +68,17 @@ class InstanceProcess(val instance: BasicInstance) {
         MCSRLauncher.LOGGER.info("Launching instance: ${instance.id}")
         instance.getGamePath().toFile().mkdirs()
 
+        val wrapperCmd: String = instance.options.getSharedWorkaroundValue { it.wrapperCommand }
+        val customGlfwPath: String = instance.options.getSharedWorkaroundValue { it.customGLFWPath }
+        val preLaunchCommand: String = instance.options.getSharedWorkaroundValue { it.preLaunchCommand }
+        val postExitCommand: String = instance.options.getSharedWorkaroundValue { it.postExitCommand }
+        val enableFeralGamemode: Boolean = instance.options.getSharedWorkaroundValue { it.enableFeralGamemode }
+        val enableMangoHud: Boolean = instance.options.getSharedWorkaroundValue { it.enableMangoHud }
+        val useDiscreteGpu: Boolean = instance.options.getSharedWorkaroundValue { it.useDiscreteGpu }
+        val useZink: Boolean = instance.options.getSharedWorkaroundValue { it.useZink }
+        val enableEnvironmentVariables: Boolean = instance.options.getSharedWorkaroundValue { it.enableEnvironmentVariables }
+        val environmentVariables: Map<String, String> = instance.options.getSharedWorkaroundValue { it.environmentVariables }
+
         var mainClass: String
         val libraries = linkedSetOf<Path>()
         val libraryMap = arrayListOf<InstanceLibrary>()
@@ -78,6 +89,10 @@ class InstanceProcess(val instance: BasicInstance) {
         )
 
         arguments.addAll(instance.options.getSharedJavaValue { it.jvmArguments }.split(" ").flatMap { it.split("\n") }.filter { it.isNotBlank() })
+
+        if (customGlfwPath.isNotBlank()) {
+            arguments.add("-Dorg.lwjgl.glfw.libname=$customGlfwPath")
+        }
 
         val minecraftMetaFile = MetaManager.getVersionMeta<MinecraftMetaFile>(MetaUniqueID.MINECRAFT, instance.minecraftVersion)
             ?: throw IllegalStateException("${MetaUniqueID.MINECRAFT.value} version meta is not found")
@@ -161,23 +176,63 @@ class InstanceProcess(val instance: BasicInstance) {
 
         libraries.add(mainJar)
 
-        val finalizeArgs = arrayListOf<String>()
-        finalizeArgs.add(javaTarget)
-        finalizeArgs.add("-Djava.library.path=${instance.getNativePath().absolutePathString()}")
-        finalizeArgs.addAll(arguments)
-        finalizeArgs.addAll(listOf("-cp", libraries.joinToString(File.pathSeparator) { it.absolutePathString() }))
-        finalizeArgs.add(mainClass)
-        finalizeArgs.addAll(gameArgs)
+        if (preLaunchCommand.isNotBlank()) {
+            GlobalScope.launch {
+                logChannel.send("Running pre-launch command:\n$preLaunchCommand\n\n")
+                try {
+                    val pre = ProcessBuilder("sh", "-c", preLaunchCommand)
+                        .directory(instance.getGamePath().toFile())
+                        .redirectErrorStream(true)
+                        .start()
+                    val exitCode = pre.waitFor()
+                    if (exitCode == 0) logChannel.send("Pre-launch command finished successfully.\n\n")
+                    else logChannel.send("WARN: Pre-launch command exited with code $exitCode.\n\n")
+                } catch (e: Exception) {
+                    logChannel.send("WARN: Failed to run pre-launch command: ${e.message}\n\n")
+                }
+            }
+        }
 
-        var debugArgs = finalizeArgs.joinToString(" ")
+        val gameLaunchArgs = mutableListOf<String>()
+        gameLaunchArgs += javaTarget
+        gameLaunchArgs += "-Djava.library.path=${instance.getNativePath().absolutePathString()}"
+        gameLaunchArgs += arguments
+        gameLaunchArgs += listOf("-cp", libraries.joinToString(File.pathSeparator) { it.absolutePathString() })
+        gameLaunchArgs += mainClass
+        gameLaunchArgs += gameArgs
+
+        val gameScript = gameLaunchArgs.joinToString(" ") { arg ->
+            if (arg.contains(" ") || arg.contains("$") || arg.contains("\"")) {
+                "'" + arg.replace("'", "'\\''") + "'"
+            } else arg
+        }
+
+        val finalLaunchArgs = mutableListOf<String>()
+        if (enableFeralGamemode) finalLaunchArgs += "gamemoded"
+        if (enableMangoHud) finalLaunchArgs += "mangohud"
+
+        val useShellWrapper = wrapperCmd.contains("\$GAME_SCRIPT") || wrapperCmd.contains("\${GAME_SCRIPT}")
+
+        if (wrapperCmd.isNotBlank()) {
+            if (useShellWrapper) {
+                finalLaunchArgs += listOf("sh", "-c", wrapperCmd)
+            } else {
+                finalLaunchArgs += wrapperCmd.split("\\s+".toRegex())
+                finalLaunchArgs += gameLaunchArgs
+            }
+        } else {
+            finalLaunchArgs += gameLaunchArgs
+        }
+
+        var debugArgs = finalLaunchArgs.joinToString(" ")
         if (accessToken != null) debugArgs = debugArgs.replace(accessToken, "[ACCESS TOKEN]")
         MCSRLauncher.LOGGER.debug(debugArgs)
 
         GlobalScope.launch {
-            val processBuilder = ProcessBuilder(finalizeArgs)
+            val pb = ProcessBuilder(finalLaunchArgs)
                 .directory(instance.getGamePath().toFile())
                 .redirectErrorStream(true)
-            processBuilder.environment().apply {
+            pb.environment().apply {
                 put("INST_ID", instance.id)
                 put("INST_NAME", instance.displayName)
                 put("INST_DIR", instance.getInstancePath().absolutePathString())
@@ -185,8 +240,16 @@ class InstanceProcess(val instance: BasicInstance) {
                 put("INST_MC_VER", instance.minecraftVersion)
                 put("INST_JAVA", javaContainer.path.absolutePathString())
                 put("INST_JAVA_ARGS", arguments.joinToString(" "))
+                put("GAME_SCRIPT", gameScript)
+                if (useDiscreteGpu) put("DRI_PRIME", "1")
+                if (useZink) put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
+                if (enableEnvironmentVariables) {
+                    environmentVariables.forEach { (key, value) ->
+                        if (key.isNotBlank()) put(key, value)
+                    }
+                }
             }
-            val process = processBuilder.start()
+            val process = pb.start()
 
             launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
@@ -203,18 +266,29 @@ class InstanceProcess(val instance: BasicInstance) {
 
             val javaArch = if (javaContainer.arch.contains("64")) "x64" else "x86"
 
-            val initialLogs = listOf(
+            val initialLogs = mutableListOf(
                 "${MCSRLauncher.APP_NAME} version: ${MCSRLauncher.APP_VERSION}\n\n",
                 "Minecraft folder is:\n${instance.getGamePath().absolutePathString()}\n\n",
                 "Java path is:\n${javaContainer.path}\n\n",
                 "Java is version: ${javaContainer.version} using $javaArch architecture from ${javaContainer.vendor}\n\n",
                 "Java arguments are:\n${arguments.joinToString(" ")}\n\n",
-                "Main Class:\n$mainClass\n\n",
-                "Mods:"
+                "Main Class:\n$mainClass\n\n"
             )
-            initialLogs.forEach { message ->
-                addLog(message)
+
+            if (wrapperCmd.isNotBlank()) initialLogs.add("Wrapper command:\n$wrapperCmd\n\n")
+            if (customGlfwPath.isNotBlank()) initialLogs.add("Custom GLFW library:\n$customGlfwPath\n\n")
+            if (enableFeralGamemode) initialLogs.add("Running with Feral GameMode\n\n")
+            if (enableMangoHud) initialLogs.add("Running with MangoHUD\n\n")
+            if (useDiscreteGpu) initialLogs.add("Running with discrete GPU (DRI_PRIME=1)\n\n")
+            if (useZink) initialLogs.add("Running with Zink renderer\n\n")
+            if (preLaunchCommand.isNotBlank()) initialLogs.add("Pre-launch command:\n$preLaunchCommand\n\n")
+            if (postExitCommand.isNotBlank()) initialLogs.add("Post-exit command:\n$postExitCommand\n\n")
+            if (enableEnvironmentVariables && environmentVariables.isNotEmpty()) {
+                initialLogs.add("Custom environment variables:\n${environmentVariables.entries.joinToString("\n") { "${it.key}=${it.value}" }}\n\n")
             }
+
+            initialLogs.add("Mods:")
+            initialLogs.forEach { message -> addLog(message) }
 
             for (mod in instance.getMods()) {
                 val status = if (mod.isEnabled) "✅" else "❌"
@@ -296,10 +370,31 @@ class InstanceProcess(val instance: BasicInstance) {
         }
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     private fun onExit(code: Int) {
         MCSRLauncher.GAME_PROCESSES.remove(this)
         this.instance.onProcessExit(code, exitByUser)
-        this.logChannel.close()
+
+        val postExitCommand = instance.options.getSharedWorkaroundValue { it.postExitCommand }
+        if (postExitCommand.isNotBlank()) {
+            GlobalScope.launch {
+                logChannel.send("Running post-exit command:\n$postExitCommand\n\n")
+                try {
+                    val post = ProcessBuilder("sh", "-c", postExitCommand)
+                        .directory(instance.getGamePath().toFile())
+                        .redirectErrorStream(true)
+                        .start()
+                    val exitCode = post.waitFor()
+                    if (exitCode == 0) logChannel.send("Post-exit command ran successfully.\n\n")
+                    else logChannel.send("WARN: Post-exit command exited with code $exitCode.\n\n")
+                } catch (e: Exception) {
+                    logChannel.send("WARN: Failed to run post-exit command: ${e.message}\n\n")
+                }
+                logChannel.close()
+            }
+        } else {
+            this.logChannel.close()
+        }
     }
 
     fun exit() {
