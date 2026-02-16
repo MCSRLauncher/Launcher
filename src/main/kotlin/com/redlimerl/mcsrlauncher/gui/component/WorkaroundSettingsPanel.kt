@@ -1,11 +1,11 @@
 package com.redlimerl.mcsrlauncher.gui.component
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
-import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.launcher.LauncherSharedOptions
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.NixGLFWDetector
+import com.redlimerl.mcsrlauncher.util.SystemCapabilities
 import java.awt.*
 import javax.swing.*
 
@@ -126,10 +126,7 @@ class WorkaroundSettingsPanel(
 
         val checkboxes = mutableListOf(feralBox, mangoBox, discreteBox, zinkBox)
         if (NixGLFWDetector.isNixOS) checkboxes.add(useSystemGLFWBox)
-
-        val isLinux = !DeviceOSType.WINDOWS.isOn() && !DeviceOSType.MACOS.isOn()
-        val hasNvidia = isLinux && java.nio.file.Files.exists(java.nio.file.Path.of("/proc/driver/nvidia/version"))
-        if (hasNvidia) checkboxes.add(nvidiaGlThreadedBox)
+        if (SystemCapabilities.hasNvidia) checkboxes.add(nvidiaGlThreadedBox)
 
         checkboxes.forEach { box ->
             c.gridy = row++
@@ -144,46 +141,8 @@ class WorkaroundSettingsPanel(
             weightx = 1.0; insets = Insets(12, 0, 4, 0)
         })
 
-        fun commandExists(cmd: String): Boolean {
-            if (DeviceOSType.WINDOWS.isOn()) {
-                return try {
-                    val process = ProcessBuilder("where", cmd).redirectErrorStream(true).start()
-                    process.waitFor()
-                    process.exitValue() == 0
-                } catch (_: Exception) {
-                    false
-                }
-            } else {
-                return try {
-                    val process = ProcessBuilder("which", cmd).redirectErrorStream(true).start()
-                    process.waitFor()
-                    process.exitValue() == 0
-                } catch (_: Exception) {
-                    false
-                }
-            }
-        }
-
-        feralInstalled = commandExists("gamemoded")
-        mangoInstalled = commandExists("mangohud")
-
-        fun detectZink(): Boolean {
-            val override = System.getenv("MESA_LOADER_DRIVER_OVERRIDE")
-            if (override?.split(':')?.any { it.equals("zink", true) } == true) return true
-
-            val candidates = arrayOf(
-                "/usr/lib/dri/zink_dri.so",
-                "/usr/lib64/dri/zink_dri.so",
-                "/usr/lib/x86_64-linux-gnu/dri/zink_dri.so",
-                "/usr/lib/aarch64-linux-gnu/dri/zink_dri.so",
-                "/usr/lib/arm-linux-gnueabihf/dri/zink_dri.so"
-            )
-            if (candidates.any { java.nio.file.Files.exists(java.nio.file.Path.of(it)) }) return true
-
-            return commandExists("vulkaninfo")
-        }
-
-        val zinkAvailable = detectZink()
+        feralInstalled = SystemCapabilities.feralInstalled
+        mangoInstalled = SystemCapabilities.mangoInstalled
 
         val tooltipNotFound = I18n.translate("tooltip.not_found_on_system")
         val tooltipNotAvailable = I18n.translate("tooltip.not_available_on_system")
@@ -196,7 +155,7 @@ class WorkaroundSettingsPanel(
             mangoBox.isEnabled = false
             mangoBox.toolTipText = "MangoHUD $tooltipNotFound"
         }
-        if (!zinkAvailable) {
+        if (!SystemCapabilities.zinkAvailable) {
             zinkBox.isEnabled = false
             zinkBox.toolTipText = "Zink $tooltipNotAvailable"
         }

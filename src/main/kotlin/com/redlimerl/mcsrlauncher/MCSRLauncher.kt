@@ -118,6 +118,9 @@ object MCSRLauncher {
             }
         }
 
+        // Preload system capability checks in background (command existence, GPU detection, etc.)
+        com.redlimerl.mcsrlauncher.util.SystemCapabilities.preload()
+
         // Setup Theme
         LOGGER.warn("Loading theme")
         SwingUtilities.invokeAndWait {
