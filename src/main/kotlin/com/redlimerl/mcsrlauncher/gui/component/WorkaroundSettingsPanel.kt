@@ -1,10 +1,11 @@
 package com.redlimerl.mcsrlauncher.gui.component
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
-import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.launcher.LauncherSharedOptions
 import com.redlimerl.mcsrlauncher.util.I18n
+import com.redlimerl.mcsrlauncher.util.NixGLFWDetector
+import com.redlimerl.mcsrlauncher.util.SystemCapabilities
 import java.awt.*
 import javax.swing.*
 
@@ -20,7 +21,7 @@ class WorkaroundSettingsPanel(
     override fun getScrollableTracksViewportWidth(): Boolean = true
     override fun getScrollableTracksViewportHeight(): Boolean = false
 
-    val glfPathField = JTextField()
+    val glfPathField: JTextField
     val wrapperCommandField = JTextField()
     val preLaunchField = JTextField()
     val postExitField = JTextField()
@@ -29,6 +30,8 @@ class WorkaroundSettingsPanel(
     val mangoBox = JCheckBox("${I18n.translate("text.enable")} MangoHUD")
     val discreteBox = JCheckBox(I18n.translate("text.use_discrete_gpu"))
     val zinkBox = JCheckBox(I18n.translate("text.use_zink"))
+    val useSystemGLFWBox = JCheckBox(I18n.translate("text.use_system_glfw"))
+    val nvidiaGlThreadedBox = JCheckBox(I18n.translate("text.disable_gl_threaded_opt"))
 
     val feralInstalled: Boolean
     val mangoInstalled: Boolean
@@ -36,6 +39,22 @@ class WorkaroundSettingsPanel(
     val envVarsPanel: EnvironmentVariablesPanel
 
     init {
+        val nixGlfwPath = NixGLFWDetector.cachedPath
+
+        glfPathField = object : JTextField() {
+            override fun paintComponent(g: Graphics) {
+                super.paintComponent(g)
+                if (text.isNullOrEmpty() && !hasFocus() && useSystemGLFWBox.isSelected && nixGlfwPath != null) {
+                    val g2 = g as Graphics2D
+                    g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+                    g2.color = Color(150, 150, 150)
+                    g2.font = font.deriveFont(Font.ITALIC)
+                    val fm = g2.fontMetrics
+                    g2.drawString(nixGlfwPath, insets.left, insets.top + fm.ascent)
+                }
+            }
+        }
+
         layout = BorderLayout()
         val formPanel = JPanel(GridBagLayout())
         formPanel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
@@ -105,59 +124,25 @@ class WorkaroundSettingsPanel(
             weightx = 1.0; insets = Insets(8, 0, 8, 0)
         })
 
-        listOf(feralBox, mangoBox, discreteBox, zinkBox).forEach { box ->
+        val checkboxes = mutableListOf(feralBox, mangoBox, discreteBox, zinkBox)
+        if (NixGLFWDetector.isNixOS) checkboxes.add(useSystemGLFWBox)
+        if (SystemCapabilities.hasNvidia) checkboxes.add(nvidiaGlThreadedBox)
+
+        checkboxes.forEach { box ->
             c.gridy = row++
             c.gridx = 0
             c.gridwidth = 2
             c.weightx = 1.0
             formPanel.add(box, c)
         }
-        
+
         formPanel.add(JSeparator(), GridBagConstraints().apply {
             gridx = 0; gridy = row++; gridwidth = 2; fill = GridBagConstraints.HORIZONTAL
             weightx = 1.0; insets = Insets(12, 0, 4, 0)
         })
-        
-        fun commandExists(cmd: String): Boolean {
-            if (DeviceOSType.WINDOWS.isOn()) {
-                return try {
-                    val process = ProcessBuilder("where", cmd).redirectErrorStream(true).start()
-                    process.waitFor()
-                    process.exitValue() == 0
-                } catch (_: Exception) {
-                    false
-                }
-            } else {
-                return try {
-                    val process = ProcessBuilder("which", cmd).redirectErrorStream(true).start()
-                    process.waitFor()
-                    process.exitValue() == 0
-                } catch (_: Exception) {
-                    false
-                }
-            }
-        }
 
-        feralInstalled = commandExists("gamemoded")
-        mangoInstalled = commandExists("mangohud")
-
-        fun detectZink(): Boolean {
-            val override = System.getenv("MESA_LOADER_DRIVER_OVERRIDE")
-            if (override?.split(':')?.any { it.equals("zink", true) } == true) return true
-
-            val candidates = arrayOf(
-                "/usr/lib/dri/zink_dri.so",
-                "/usr/lib64/dri/zink_dri.so",
-                "/usr/lib/x86_64-linux-gnu/dri/zink_dri.so",
-                "/usr/lib/aarch64-linux-gnu/dri/zink_dri.so",
-                "/usr/lib/arm-linux-gnueabihf/dri/zink_dri.so"
-            )
-            if (candidates.any { java.nio.file.Files.exists(java.nio.file.Path.of(it)) }) return true
-
-            return commandExists("vulkaninfo")
-        }
-
-        val zinkAvailable = detectZink()
+        feralInstalled = SystemCapabilities.feralInstalled
+        mangoInstalled = SystemCapabilities.mangoInstalled
 
         val tooltipNotFound = I18n.translate("tooltip.not_found_on_system")
         val tooltipNotAvailable = I18n.translate("tooltip.not_available_on_system")
@@ -170,9 +155,13 @@ class WorkaroundSettingsPanel(
             mangoBox.isEnabled = false
             mangoBox.toolTipText = "MangoHUD $tooltipNotFound"
         }
-        if (!zinkAvailable) {
+        if (!SystemCapabilities.zinkAvailable) {
             zinkBox.isEnabled = false
             zinkBox.toolTipText = "Zink $tooltipNotAvailable"
+        }
+        if (!NixGLFWDetector.isNixOS) {
+            useSystemGLFWBox.isEnabled = false
+            useSystemGLFWBox.toolTipText = I18n.translate("tooltip.nixos_only")
         }
 
         fun saveFields() {
@@ -205,9 +194,11 @@ class WorkaroundSettingsPanel(
                 override fun focusLost(e: java.awt.event.FocusEvent?) = saveFields()
             })
         }
-        listOf(feralBox, mangoBox, discreteBox, zinkBox).forEach { box ->
+        listOf(feralBox, mangoBox, discreteBox, zinkBox, useSystemGLFWBox, nvidiaGlThreadedBox).forEach { box ->
             box.addActionListener { saveFields() }
         }
+
+        useSystemGLFWBox.addActionListener { glfPathField.repaint() }
     }
 
     private fun loadOptions(opt: LauncherSharedOptions, useLauncherOption: Boolean) {
@@ -220,6 +211,8 @@ class WorkaroundSettingsPanel(
         mangoBox.isSelected = opt.enableMangoHud
         discreteBox.isSelected = opt.useDiscreteGpu
         zinkBox.isSelected = opt.useZink
+        useSystemGLFWBox.isSelected = opt.useSystemGLFW
+        nvidiaGlThreadedBox.isSelected = opt.disableGlThreadedOpt
 
         envVarsPanel.setEnvEnabled(opt.enableEnvironmentVariables)
         envVarsPanel.setEnvironmentVariables(opt.environmentVariables)
@@ -237,6 +230,8 @@ class WorkaroundSettingsPanel(
         opt.enableMangoHud = mangoBox.isSelected
         opt.useDiscreteGpu = discreteBox.isSelected
         opt.useZink = zinkBox.isSelected
+        opt.useSystemGLFW = useSystemGLFWBox.isSelected
+        opt.disableGlThreadedOpt = nvidiaGlThreadedBox.isSelected
         opt.enableEnvironmentVariables = envVarsPanel.isEnvEnabled()
         opt.environmentVariables = envVarsPanel.getEnvironmentVariables()
         opt.save()
@@ -251,6 +246,8 @@ class WorkaroundSettingsPanel(
         instance.options.enableMangoHud = mangoBox.isSelected
         instance.options.useDiscreteGpu = discreteBox.isSelected
         instance.options.useZink = zinkBox.isSelected
+        instance.options.useSystemGLFW = useSystemGLFWBox.isSelected
+        instance.options.disableGlThreadedOpt = nvidiaGlThreadedBox.isSelected
         instance.options.enableEnvironmentVariables = envVarsPanel.isEnvEnabled()
         instance.options.environmentVariables = envVarsPanel.getEnvironmentVariables()
         instance.save()
@@ -267,6 +264,8 @@ class WorkaroundSettingsPanel(
             mangoBox.isSelected = MCSRLauncher.options.enableMangoHud
             discreteBox.isSelected = MCSRLauncher.options.useDiscreteGpu
             zinkBox.isSelected = MCSRLauncher.options.useZink
+            useSystemGLFWBox.isSelected = MCSRLauncher.options.useSystemGLFW
+            nvidiaGlThreadedBox.isSelected = MCSRLauncher.options.disableGlThreadedOpt
             envVarsPanel.setEnvEnabled(MCSRLauncher.options.enableEnvironmentVariables)
             envVarsPanel.setEnvironmentVariables(MCSRLauncher.options.environmentVariables)
         }
@@ -278,6 +277,8 @@ class WorkaroundSettingsPanel(
         mangoBox.isEnabled = editable && mangoInstalled
         discreteBox.isEnabled = editable
         zinkBox.isEnabled = editable
+        useSystemGLFWBox.isEnabled = editable && NixGLFWDetector.isNixOS
+        nvidiaGlThreadedBox.isEnabled = editable
         envVarsPanel.setEditable(editable)
 
         revalidate()
