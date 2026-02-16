@@ -20,6 +20,7 @@ class SpeedrunToolsBrowseGui(window: Window, title: String, tools: List<Speedrun
 
         this.toolsListPanel.layout = BoxLayout(this.toolsListPanel, BoxLayout.Y_AXIS)
         for (tool in tools) {
+            if (!tool.shouldApply()) continue
             this.toolsListPanel.add(ToolPanel(this, tool, instance))
         }
 

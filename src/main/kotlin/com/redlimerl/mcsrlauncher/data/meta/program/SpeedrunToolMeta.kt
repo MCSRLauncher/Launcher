@@ -13,10 +13,18 @@ data class SpeedrunToolMeta(
     val authors: List<String>,
     val downloadPage: String,
     val sources: String? = null,
-    val fileFilter: String,
+    val fileFilter: String?,
     val rules: List<AssetRule> = listOf()
 ) {
     fun open() {
         OSUtils.openURI(URI.create(this.downloadPage))
     }
+
+    fun shouldApply(): Boolean {
+        for (rule in this.rules) {
+            if (!rule.shouldAllow()) return false
+        }
+        return true
+    }
+
 }
