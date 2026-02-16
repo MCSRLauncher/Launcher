@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MCSR Launcher
+Comment=Minecraft Launcher written in Kotlin. Made for MCSR Community and MCSR Ranked
+Exec=mcsrlauncher %U
+Icon=mcsrlauncher
+Terminal=false
+Type=Application
+Categories=Game;
+Keywords=minecraft;speedrun;mcsr;launcher;
+StartupWMClass=MCSR Launcher

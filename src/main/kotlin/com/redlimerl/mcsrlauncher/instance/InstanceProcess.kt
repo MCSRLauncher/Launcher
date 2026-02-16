@@ -207,20 +207,30 @@ class InstanceProcess(val instance: BasicInstance) {
             } else arg
         }
 
-        val finalLaunchArgs = mutableListOf<String>()
-        if (enableFeralGamemode) finalLaunchArgs += "gamemoded"
-        if (enableMangoHud) finalLaunchArgs += "mangohud"
+        // Build prefix for game launch (mangohud, gamemoderun) to inject before game
+        val gamePrefixes = mutableListOf<String>()
+        if (enableFeralGamemode) gamePrefixes += "gamemoderun"
+        if (enableMangoHud) gamePrefixes += "mangohud"
+        val gamePrefixStr = if (gamePrefixes.isNotEmpty()) gamePrefixes.joinToString(" ") + " " else ""
 
+        // GAME_SCRIPT includes mangohud/gamemoderun so wrapper commands get them too
+        val finalGameScript = gamePrefixStr + gameScript
+
+        val finalLaunchArgs = mutableListOf<String>()
         val useShellWrapper = wrapperCmd.contains("\$GAME_SCRIPT") || wrapperCmd.contains("\${GAME_SCRIPT}")
 
         if (wrapperCmd.isNotBlank()) {
             if (useShellWrapper) {
                 finalLaunchArgs += listOf("sh", "-c", wrapperCmd)
             } else {
+                // Simple wrapper without $GAME_SCRIPT - prepend mangohud/gamemoderun
+                finalLaunchArgs += gamePrefixes
                 finalLaunchArgs += wrapperCmd.split("\\s+".toRegex())
                 finalLaunchArgs += gameLaunchArgs
             }
         } else {
+            // No wrapper - prepend mangohud/gamemoderun directly
+            finalLaunchArgs += gamePrefixes
             finalLaunchArgs += gameLaunchArgs
         }
 
@@ -240,7 +250,7 @@ class InstanceProcess(val instance: BasicInstance) {
                 put("INST_MC_VER", instance.minecraftVersion)
                 put("INST_JAVA", javaContainer.path.absolutePathString())
                 put("INST_JAVA_ARGS", arguments.joinToString(" "))
-                put("GAME_SCRIPT", gameScript)
+                put("GAME_SCRIPT", finalGameScript)
                 if (useDiscreteGpu) put("DRI_PRIME", "1")
                 if (useZink) put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
                 if (enableEnvironmentVariables) {
