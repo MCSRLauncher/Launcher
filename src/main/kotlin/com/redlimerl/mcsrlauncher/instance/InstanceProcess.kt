@@ -17,7 +17,6 @@ import com.redlimerl.mcsrlauncher.launcher.GameAssetManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.AssetUtils
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
-import com.redlimerl.mcsrlauncher.util.NixGLFWDetector
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import org.apache.commons.io.FileUtils
@@ -71,14 +70,12 @@ class InstanceProcess(val instance: BasicInstance) {
 
         val wrapperCmd: String = instance.options.getSharedWorkaroundValue { it.wrapperCommand }
         val customGlfwPath: String = instance.options.getSharedWorkaroundValue { it.customGLFWPath }
-        val useSystemGLFW: Boolean = instance.options.getSharedWorkaroundValue { it.useSystemGLFW }
         val preLaunchCommand: String = instance.options.getSharedWorkaroundValue { it.preLaunchCommand }
         val postExitCommand: String = instance.options.getSharedWorkaroundValue { it.postExitCommand }
         val enableFeralGamemode: Boolean = instance.options.getSharedWorkaroundValue { it.enableFeralGamemode }
         val enableMangoHud: Boolean = instance.options.getSharedWorkaroundValue { it.enableMangoHud }
         val useDiscreteGpu: Boolean = instance.options.getSharedWorkaroundValue { it.useDiscreteGpu }
         val useZink: Boolean = instance.options.getSharedWorkaroundValue { it.useZink }
-        val disableGlThreadedOpt: Boolean = instance.options.getSharedWorkaroundValue { it.disableGlThreadedOpt }
         val enableEnvironmentVariables: Boolean = instance.options.getSharedWorkaroundValue { it.enableEnvironmentVariables }
         val environmentVariables: Map<String, String> = instance.options.getSharedWorkaroundValue { it.environmentVariables }
 
@@ -93,16 +90,8 @@ class InstanceProcess(val instance: BasicInstance) {
 
         arguments.addAll(instance.options.getSharedJavaValue { it.jvmArguments }.split(" ").flatMap { it.split("\n") }.filter { it.isNotBlank() })
 
-        val resolvedGlfwPath = if (customGlfwPath.isNotBlank()) {
-            customGlfwPath
-        } else if (useSystemGLFW) {
-            NixGLFWDetector.detect()
-        } else {
-            null
-        }
-
-        if (resolvedGlfwPath != null) {
-            arguments.add("-Dorg.lwjgl.glfw.libname=$resolvedGlfwPath")
+        if (customGlfwPath.isNotBlank()) {
+            arguments.add("-Dorg.lwjgl.glfw.libname=$customGlfwPath")
         }
 
         val minecraftMetaFile = MetaManager.getVersionMeta<MinecraftMetaFile>(MetaUniqueID.MINECRAFT, instance.minecraftVersion)
@@ -254,7 +243,6 @@ class InstanceProcess(val instance: BasicInstance) {
                 put("GAME_SCRIPT", gameScript)
                 if (useDiscreteGpu) put("DRI_PRIME", "1")
                 if (useZink) put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
-                if (disableGlThreadedOpt) put("__GL_THREADED_OPTIMIZATIONS", "0")
                 if (enableEnvironmentVariables) {
                     environmentVariables.forEach { (key, value) ->
                         if (key.isNotBlank()) put(key, value)
@@ -288,12 +276,11 @@ class InstanceProcess(val instance: BasicInstance) {
             )
 
             if (wrapperCmd.isNotBlank()) initialLogs.add("Wrapper command:\n$wrapperCmd\n\n")
-            if (resolvedGlfwPath != null) initialLogs.add("GLFW library:\n$resolvedGlfwPath\n\n")
+            if (customGlfwPath.isNotBlank()) initialLogs.add("Custom GLFW library:\n$customGlfwPath\n\n")
             if (enableFeralGamemode) initialLogs.add("Running with Feral GameMode\n\n")
             if (enableMangoHud) initialLogs.add("Running with MangoHUD\n\n")
             if (useDiscreteGpu) initialLogs.add("Running with discrete GPU (DRI_PRIME=1)\n\n")
             if (useZink) initialLogs.add("Running with Zink renderer\n\n")
-            if (disableGlThreadedOpt) initialLogs.add("GL threaded optimizations disabled (__GL_THREADED_OPTIMIZATIONS=0)\n\n")
             if (preLaunchCommand.isNotBlank()) initialLogs.add("Pre-launch command:\n$preLaunchCommand\n\n")
             if (postExitCommand.isNotBlank()) initialLogs.add("Post-exit command:\n$postExitCommand\n\n")
             if (enableEnvironmentVariables && environmentVariables.isNotEmpty()) {
