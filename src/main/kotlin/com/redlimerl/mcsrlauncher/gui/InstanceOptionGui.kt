@@ -1,10 +1,12 @@
 package com.redlimerl.mcsrlauncher.gui
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
+import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMapsMetaFile
 import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunToolsMetaFile
+import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.InstanceGroupComboBox
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
@@ -22,6 +24,7 @@ import java.awt.dnd.DnDConstants
 import java.awt.dnd.DropTarget
 import java.awt.dnd.DropTargetDragEvent
 import java.awt.dnd.DropTargetDropEvent
+import java.awt.Window
 import java.awt.event.WindowEvent
 import java.awt.event.WindowFocusListener
 import java.io.File
@@ -34,6 +37,8 @@ import kotlin.io.path.absolutePathString
 import kotlin.io.path.exists
 
 class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : InstanceOptionDialog(parent) {
+    private val instanceOptions = instance.options
+    private val applyInstanceChanges = { instance.save() }
 
     var mods: List<ModData> = emptyList()
     private val launchBlockComponents = arrayListOf<Component>()
@@ -54,6 +59,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
         initJavaTab()
         initLogTab()
         initToolsTab()
+        initWorkaroundsTab()
 
         I18n.translateGui(this)
         setLauncherLaunched(instance.isRunning())
@@ -361,7 +367,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
                 override fun work(dialog: JDialog) {
                     val tools = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "verified", this)!!
                     dialog.dispose()
-                    SpeedrunToolsBrowseGui(this@InstanceOptionGui, I18n.translate("text.download.practice_maps"), tools.programs, instance)
+                    SpeedrunToolsBrowseGui(this@InstanceOptionGui, I18n.translate("text.download.speedrun_tools"), tools.programs, instance)
                 }
             }.showDialog().start()
         }
@@ -385,5 +391,63 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
             instance.options.clearBeforeLaunch = autoWorldClearComboBox.isSelected
             instance.save()
         }
+    }
+
+    private fun initWorkaroundsTab() {
+        if (DeviceOSType.WINDOWS.isOn()) {
+            for (i in 0 until optionTab.tabCount) {
+                if (optionTab.getComponentAt(i) == workaroundScrollPane) {
+                    optionTab.removeTabAt(i)
+                    break
+                }
+            }
+            return
+        }
+
+        val workaroundPanel = WorkaroundSettingsPanel(
+            this,
+            instance,
+            instance.options,
+            instance.options
+        ) {
+            instance.save()
+        }
+
+        fun commandExists(cmd: String): Boolean {
+            return try {
+                ProcessBuilder("which", cmd).start().waitFor() == 0
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        val feralAvailable = commandExists("gamemoded")
+        val mangoAvailable = commandExists("mangohud")
+
+        workaroundPanel.feralBox.isEnabled = feralAvailable
+        workaroundPanel.feralBox.toolTipText =
+            if (feralAvailable) "Enable Feral GameMode" else "Feral Interactive's GameMode not found in PATH"
+
+        workaroundPanel.mangoBox.isEnabled = mangoAvailable
+        workaroundPanel.mangoBox.toolTipText =
+            if (mangoAvailable) "Enable MangoHUD" else "mangoHUD not found in PATH"
+
+        workaroundLauncherSettingCheckBox.isSelected = instance.options.useLauncherWorkarounds
+        workaroundLauncherSettingCheckBox.addActionListener {
+            val selected = workaroundLauncherSettingCheckBox.isSelected
+            instance.options.useLauncherWorkarounds = selected
+            workaroundPanel.applyLauncherSettings(selected)
+            workaroundPanel.feralBox.isEnabled = feralAvailable && !selected
+            workaroundPanel.mangoBox.isEnabled = mangoAvailable && !selected
+            instance.save()
+        }
+
+        workaroundSettingsPane.layout = BorderLayout()
+        workaroundSettingsPane.removeAll()
+        workaroundSettingsPane.add(workaroundPanel, BorderLayout.CENTER)
+        workaroundSettingsPane.revalidate()
+        workaroundSettingsPane.repaint()
+
+        SwingUtils.fasterScroll(workaroundScrollPane)
     }
 }

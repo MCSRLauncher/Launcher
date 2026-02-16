@@ -23,6 +23,7 @@ public class LauncherOptionDialog extends JDialog {
     public JScrollPane tabLauncherScrollPane;
     public JButton checkUpdateButton;
     public JScrollPane tabInterfaceScrollPane;
+    public JScrollPane tabWorkaroundScrollPane;
     public JPanel launcherGameResolutionPane;
     public JPanel logPanel;
     public JSpinner concurrentDownloadsSpinner;
@@ -67,7 +68,7 @@ public class LauncherOptionDialog extends JDialog {
         contentPane.add(panel3, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, new Dimension(213, 248), null, 0, false));
         settingsTabPane = new JTabbedPane();
         settingsTabPane.setTabPlacement(2);
-        panel3.add(settingsTabPane, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_EAST, GridConstraints.FILL_VERTICAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, new Dimension(663, 200), null, 0, false));
+        panel3.add(settingsTabPane, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, new Dimension(663, 200), null, 0, false));
         tabLauncherScrollPane = new JScrollPane();
         tabLauncherScrollPane.setHorizontalScrollBarPolicy(31);
         settingsTabPane.addTab("text.launcher", tabLauncherScrollPane);
@@ -126,6 +127,10 @@ public class LauncherOptionDialog extends JDialog {
         final JPanel panel7 = new JPanel();
         panel7.setLayout(new GridLayoutManager(1, 1, new Insets(10, 10, 10, 10), -1, 15));
         tabInterfaceScrollPane.setViewportView(panel7);
+        tabWorkaroundScrollPane = new JScrollPane();
+        tabWorkaroundScrollPane.setHorizontalScrollBarPolicy(31);
+        settingsTabPane.addTab("text.workarounds", tabWorkaroundScrollPane);
+        tabWorkaroundScrollPane.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(), null, TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.DEFAULT_POSITION, null, null));
         final JPanel panel8 = new JPanel();
         panel8.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
         settingsTabPane.addTab("text.log", panel8);

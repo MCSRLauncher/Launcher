@@ -118,7 +118,7 @@ data class BasicInstance(
     fun onLaunch() {
         MCSRLauncher.LOGGER.info("Launched instance: $id")
         InstanceManager.refreshInstanceList()
-        logViewerPanel.let { getProcess()?.syncLogViewer(it) }
+        getProcess()?.syncLogViewer(logViewerPanel)
         optionDialog?.setLauncherLaunched(true)
         lastLaunch = System.currentTimeMillis()
         lastPlaytimeUpdate = lastLaunch
