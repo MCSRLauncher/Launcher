@@ -12,6 +12,9 @@ data class InstanceOptions(
     var autoModUpdates: Boolean = false,
     var clearBeforeLaunch: Boolean = false,
     var useLauncherWorkarounds: Boolean = true,
+    var enableToolscreen: Boolean = false,
+    var selectToolscreenVersion: String = "",
+    var autoToolscreenUpdates: Boolean = true,
 
     override var customGLFWPath: String = "",
     override var useSystemGLFW: Boolean = false,
@@ -46,21 +49,6 @@ data class InstanceOptions(
     fun <T> getSharedWorkaroundValue(sharedOptions: (LauncherSharedOptions) -> T): T {
         return sharedOptions(
             if (useLauncherWorkarounds) MCSRLauncher.options else this
-        )
-    }
-
-    fun save(instanceId: String) {
-        val json = kotlinx.serialization.json.Json {
-            prettyPrint = true
-            encodeDefaults = true
-        }
-        val instancePath = com.redlimerl.mcsrlauncher.launcher.InstanceManager.INSTANCES_PATH
-            .resolve(instanceId)
-            .resolve("instance.json")
-        org.apache.commons.io.FileUtils.writeStringToFile(
-            instancePath.toFile(),
-            json.encodeToString(this),
-            Charsets.UTF_8
         )
     }
 }

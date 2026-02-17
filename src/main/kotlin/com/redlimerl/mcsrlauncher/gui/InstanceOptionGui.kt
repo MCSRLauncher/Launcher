@@ -5,6 +5,8 @@ import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMapsMetaFile
 import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunProgramsMetaFile
+import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunToolsMetaFile
+import com.redlimerl.mcsrlauncher.data.meta.tool.SpeedrunToolVersion
 import com.redlimerl.mcsrlauncher.gui.component.InstanceGroupComboBox
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
@@ -12,10 +14,7 @@ import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
 import com.redlimerl.mcsrlauncher.instance.mod.ModData
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
-import com.redlimerl.mcsrlauncher.util.AssetUtils
-import com.redlimerl.mcsrlauncher.util.I18n
-import com.redlimerl.mcsrlauncher.util.LauncherWorker
-import com.redlimerl.mcsrlauncher.util.SwingUtils
+import com.redlimerl.mcsrlauncher.util.*
 import org.apache.commons.io.FileUtils
 import java.awt.*
 import java.awt.datatransfer.DataFlavor
@@ -26,24 +25,25 @@ import java.awt.dnd.DropTargetDropEvent
 import java.awt.event.WindowEvent
 import java.awt.event.WindowFocusListener
 import java.io.File
+import java.net.URI
+import java.nio.file.Path
 import java.text.SimpleDateFormat
 import javax.swing.*
 import javax.swing.filechooser.FileFilter
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableModel
 import kotlin.io.path.absolutePathString
+import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 
 class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : InstanceOptionDialog(parent) {
-    private val instanceOptions = instance.options
-    private val applyInstanceChanges = { instance.save() }
 
     var mods: List<ModData> = emptyList()
     private val launchBlockComponents = arrayListOf<Component>()
 
     init {
         title = getUpdatedTitle()
-        minimumSize = Dimension(800, 500)
+        minimumSize = Dimension(850, 500)
         defaultCloseOperation = DISPOSE_ON_CLOSE
         setLocationRelativeTo(parent)
 
@@ -393,6 +393,81 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
             instance.options.clearBeforeLaunch = autoWorldClearComboBox.isSelected
             instance.save()
         }
+
+        loadToolscreen()
+    }
+
+    private fun loadToolscreen() {
+        toolscreenCheckbox.isEnabled = false
+        toolscreenVersionCombo.isEnabled = false
+        toolscreenHomepage.isEnabled = false
+        toolscreenUpdateCheckbox.isEnabled = false
+        object : LauncherWorker(this@InstanceOptionGui, I18n.translate("message.loading")) {
+            override fun work(dialog: JDialog) {
+                val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen", this)
+                if (toolscreenMeta != null) {
+                    fun applyToolscreenFile() {
+                        val oldSelect = instance.options.selectToolscreenVersion
+                        var oldPath: Path? = null
+                        if (instance.options.selectToolscreenVersion.isNotBlank() && instance.options.selectToolscreenVersion.endsWith(toolscreenMeta.tool.format)) {
+                            oldPath = instance.getInstancePath().resolve(instance.options.selectToolscreenVersion)
+                        }
+
+                        var targetVersion: SpeedrunToolVersion? = null
+                        for (version in toolscreenMeta.tool.versions) {
+                            if (version.version == toolscreenVersionCombo.selectedItem || instance.options.autoToolscreenUpdates) {
+                                instance.options.selectToolscreenVersion = version.name
+                                targetVersion = version
+                                break
+                            }
+                        }
+
+                        if (instance.options.selectToolscreenVersion != oldSelect && targetVersion != null) {
+                            object : LauncherWorker(this@InstanceOptionGui, I18n.translate("message.loading")) {
+                                override fun work(dialog: JDialog) {
+                                    oldPath?.deleteIfExists()
+                                }
+                            }.start()
+                        }
+                    }
+
+                    toolscreenCheckbox.isEnabled = toolscreenMeta.tool.shouldApply() == true
+                    toolscreenCheckbox.isSelected = instance.options.enableToolscreen
+                    toolscreenCheckbox.addActionListener {
+                        instance.options.enableToolscreen = toolscreenCheckbox.isSelected
+                        applyToolscreenFile()
+                        instance.save()
+                    }
+
+                    var selectedIndex = 0
+                    toolscreenMeta.tool.versions.forEachIndexed { index, version ->
+                        toolscreenVersionCombo.addItem(version.version)
+                        if (!instance.options.autoToolscreenUpdates && instance.options.selectToolscreenVersion == version.name) selectedIndex = index
+                    }
+                    toolscreenVersionCombo.isEnabled = !instance.options.autoToolscreenUpdates
+                    toolscreenVersionCombo.selectedIndex = selectedIndex
+                    toolscreenVersionCombo.addActionListener {
+                        applyToolscreenFile()
+                        instance.save()
+                    }
+
+                    toolscreenHomepage.isEnabled = true
+                    toolscreenHomepage.addActionListener {
+                        OSUtils.openURI(URI.create(toolscreenMeta.tool.homepage))
+                    }
+
+                    toolscreenUpdateCheckbox.isEnabled = toolscreenMeta.tool.shouldApply() == true
+                    toolscreenUpdateCheckbox.isSelected = instance.options.autoToolscreenUpdates
+                    toolscreenUpdateCheckbox.addActionListener {
+                        instance.options.autoToolscreenUpdates = toolscreenUpdateCheckbox.isSelected
+                        toolscreenVersionCombo.isEnabled = !instance.options.autoToolscreenUpdates
+                        applyToolscreenFile()
+                        instance.save()
+                    }
+                }
+                dialog.dispose()
+            }
+        }.showDialog().start()
     }
 
     private fun initWorkaroundsTab() {

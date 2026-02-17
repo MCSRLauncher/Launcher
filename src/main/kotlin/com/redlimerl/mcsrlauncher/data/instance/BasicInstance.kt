@@ -8,6 +8,7 @@ import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MetaVersionFile
 import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMetaFile
 import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunModsMetaFile
+import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunToolsMetaFile
 import com.redlimerl.mcsrlauncher.data.meta.mod.SpeedrunModMeta
 import com.redlimerl.mcsrlauncher.data.meta.mod.SpeedrunModTrait
 import com.redlimerl.mcsrlauncher.data.meta.mod.SpeedrunModVersion
@@ -179,6 +180,24 @@ data class BasicInstance(
         }
 
         MCSRLauncher.LOGGER.info("Installed all game files and libraries!")
+
+        if (options.enableToolscreen && (options.selectToolscreenVersion.isNotBlank() || options.autoToolscreenUpdates)) {
+            val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen", worker)
+            val toolscreenFile = getToolscreenFile()
+            if (toolscreenMeta != null && toolscreenFile != null && toolscreenMeta.tool.shouldApply()) {
+                for (version in toolscreenMeta.tool.versions) {
+                    if (version.name == options.selectToolscreenVersion || options.autoToolscreenUpdates) {
+                        if (!toolscreenFile.exists() || !AssetUtils.compareHash(toolscreenFile, version.checksum.hash, AssetUtils.getHashFunction(version.checksum.type))) {
+                            worker.setState("Downloading ${version.name}...")
+                            version.install(worker, this, toolscreenMeta.tool)
+                            options.selectToolscreenVersion = version.name
+                            save()
+                        }
+                        break
+                    }
+                }
+            }
+        }
     }
 
     fun launchInstance(worker: LauncherWorker) {
@@ -447,5 +466,11 @@ data class BasicInstance(
             optionDialog = InstanceOptionGui(window, this)
         }
         return optionDialog!!
+    }
+
+    fun getToolscreenFile(): File? {
+        if (options.selectToolscreenVersion.isBlank()) return null
+        val file = this.getInstancePath().resolve(options.selectToolscreenVersion).toFile()
+        return if (file.isFile || !file.exists()) file else null
     }
 }
