@@ -315,7 +315,7 @@ class InstanceProcess(val instance: BasicInstance) {
         }
     }
 
-    suspend fun addLog(logString: String) {
+    private fun addLog(logString: String) {
         synchronized(logArchive) {
             logArchive.add(logString)
             if (logArchive.size > MAX_LOG_ARCHIVED_COUNT) {

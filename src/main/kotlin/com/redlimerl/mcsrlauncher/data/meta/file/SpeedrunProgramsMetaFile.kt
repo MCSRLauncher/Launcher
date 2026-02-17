@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 import java.util.*
 
 @Serializable
-data class SpeedrunToolsMetaFile(
+data class SpeedrunProgramsMetaFile(
     override val uid: MetaUniqueID,
     override val name: String,
     override val version: String,

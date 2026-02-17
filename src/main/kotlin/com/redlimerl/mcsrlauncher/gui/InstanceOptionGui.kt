@@ -4,7 +4,7 @@ import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMapsMetaFile
-import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunToolsMetaFile
+import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunProgramsMetaFile
 import com.redlimerl.mcsrlauncher.gui.component.InstanceGroupComboBox
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
@@ -360,12 +360,16 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
                 }
             }.showDialog().start()
         }
-        browseToolsButton.addActionListener {
+        browseProgramsButton.addActionListener {
             object : LauncherWorker(this@InstanceOptionGui, I18n.translate("message.loading")) {
                 override fun work(dialog: JDialog) {
-                    val tools = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "verified", this)!!
+                    val programs = MetaManager.getVersionMeta<SpeedrunProgramsMetaFile>(MetaUniqueID.SPEEDRUN_PROGRAMS, "verified", this)!!
                     dialog.dispose()
-                    SpeedrunToolsBrowseGui(this@InstanceOptionGui, I18n.translate("text.download.speedrun_tools"), tools.programs, instance)
+                    SpeedrunProgramsBrowseGui(
+                        this@InstanceOptionGui,
+                        I18n.translate("text.download.speedrun_programs"),
+                        programs.programs
+                    )
                 }
             }.showDialog().start()
         }

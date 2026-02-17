@@ -1,6 +1,5 @@
 package com.redlimerl.mcsrlauncher.gui
 
-import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.program.SpeedrunToolMeta
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.OSUtils
@@ -10,7 +9,7 @@ import java.net.URI
 import javax.swing.*
 
 
-class SpeedrunToolsBrowseGui(window: Window, title: String, tools: List<SpeedrunToolMeta>, instance: BasicInstance) : SpeedrunToolsBrowseDialog(window) {
+class SpeedrunProgramsBrowseGui(window: Window, title: String, tools: List<SpeedrunToolMeta>) : SpeedrunToolsBrowseDialog(window) {
     init {
         this.title = title
         minimumSize = Dimension(700, 500)
@@ -21,7 +20,7 @@ class SpeedrunToolsBrowseGui(window: Window, title: String, tools: List<Speedrun
         this.toolsListPanel.layout = BoxLayout(this.toolsListPanel, BoxLayout.Y_AXIS)
         for (tool in tools) {
             if (!tool.shouldApply()) continue
-            this.toolsListPanel.add(ToolPanel(this, tool, instance))
+            this.toolsListPanel.add(ToolPanel(tool))
         }
 
         this.buttonCancel.addActionListener { this.dispose() }
@@ -30,7 +29,7 @@ class SpeedrunToolsBrowseGui(window: Window, title: String, tools: List<Speedrun
         isVisible = true
     }
 
-    class ToolPanel(parent: SpeedrunToolsBrowseGui, tool: SpeedrunToolMeta, instance: BasicInstance) : JPanel() {
+    class ToolPanel(tool: SpeedrunToolMeta) : JPanel() {
         init {
             layout = BorderLayout(5, 5)
             border = BorderFactory.createCompoundBorder(
