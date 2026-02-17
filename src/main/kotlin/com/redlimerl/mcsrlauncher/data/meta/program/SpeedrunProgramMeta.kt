@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 import java.net.URI
 
 @Serializable
-data class SpeedrunToolMeta(
+data class SpeedrunProgramMeta(
     val id: String,
     val name: String,
     val description: String,

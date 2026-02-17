@@ -1,6 +1,6 @@
 package com.redlimerl.mcsrlauncher.gui
 
-import com.redlimerl.mcsrlauncher.data.meta.program.SpeedrunToolMeta
+import com.redlimerl.mcsrlauncher.data.meta.program.SpeedrunProgramMeta
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.OSUtils
 import com.redlimerl.mcsrlauncher.util.SwingUtils
@@ -9,18 +9,18 @@ import java.net.URI
 import javax.swing.*
 
 
-class SpeedrunProgramsBrowseGui(window: Window, title: String, tools: List<SpeedrunToolMeta>) : SpeedrunToolsBrowseDialog(window) {
+class SpeedrunProgramsBrowseGui(window: Window, title: String, programs: List<SpeedrunProgramMeta>) : SpeedrunToolsBrowseDialog(window) {
     init {
         this.title = title
         minimumSize = Dimension(700, 500)
         setLocationRelativeTo(parent)
 
-        SwingUtils.fasterScroll(this.toolsScrollPane)
+        SwingUtils.fasterScroll(this.programsScrollPane)
 
-        this.toolsListPanel.layout = BoxLayout(this.toolsListPanel, BoxLayout.Y_AXIS)
-        for (tool in tools) {
-            if (!tool.shouldApply()) continue
-            this.toolsListPanel.add(ToolPanel(tool))
+        this.programsListPanel.layout = BoxLayout(this.programsListPanel, BoxLayout.Y_AXIS)
+        for (program in programs) {
+            if (!program.shouldApply()) continue
+            this.programsListPanel.add(ProgramPanel(program))
         }
 
         this.buttonCancel.addActionListener { this.dispose() }
@@ -29,7 +29,7 @@ class SpeedrunProgramsBrowseGui(window: Window, title: String, tools: List<Speed
         isVisible = true
     }
 
-    class ToolPanel(tool: SpeedrunToolMeta) : JPanel() {
+    class ProgramPanel(program: SpeedrunProgramMeta) : JPanel() {
         init {
             layout = BorderLayout(5, 5)
             border = BorderFactory.createCompoundBorder(
@@ -37,10 +37,10 @@ class SpeedrunProgramsBrowseGui(window: Window, title: String, tools: List<Speed
                 BorderFactory.createEmptyBorder(5, 5, 10, 5)
             )
 
-            val titleLabel = JLabel("<html><font size='+1'><b>${tool.name}</b></font> by ${tool.authors.joinToString(", ")}</html>")
+            val titleLabel = JLabel("<html><font size='+1'><b>${program.name}</b></font> by ${program.authors.joinToString(", ")}</html>")
             titleLabel.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
 
-            val descriptionArea = JTextArea(tool.description)
+            val descriptionArea = JTextArea(program.description)
             descriptionArea.lineWrap = true
             descriptionArea.wrapStyleWord = true
             descriptionArea.isEditable = false
@@ -49,13 +49,13 @@ class SpeedrunProgramsBrowseGui(window: Window, title: String, tools: List<Speed
             val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT))
             val downloadButton = JButton("Download")
             downloadButton.addActionListener {
-                OSUtils.openURI(URI.create(tool.downloadPage))
+                OSUtils.openURI(URI.create(program.downloadPage))
             }
             buttonPanel.add(downloadButton)
-            if (tool.sources != null) {
+            if (program.sources != null) {
                 val sourceButton = JButton("Source")
                 sourceButton.addActionListener {
-                    OSUtils.openURI(URI.create(tool.sources))
+                    OSUtils.openURI(URI.create(program.sources))
                 }
                 buttonPanel.add(sourceButton)
             }
