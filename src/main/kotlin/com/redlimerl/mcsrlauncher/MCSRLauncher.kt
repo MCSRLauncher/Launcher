@@ -74,7 +74,7 @@ object MCSRLauncher {
         return Paths.get("").resolve("launcher")
     }
 
-    private fun isInstalledFromPackage(): Boolean {
+    fun isInstalledFromPackage(): Boolean {
         val jarPath = try {
             Paths.get(javaClass.protectionDomain.codeSource.location.toURI()).toString()
         } catch (_: Exception) {

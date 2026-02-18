@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-VERSION="0.7.2~beta"
-RELEASE_TAG="0.7.2-beta"
+VERSION="0.8.0~beta"
+RELEASE_TAG="0.8.0-beta"
 GPG_KEY="3408D2D89725BDD9"
 PPA="ppa:flammablebunny/mcsrlauncher"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
