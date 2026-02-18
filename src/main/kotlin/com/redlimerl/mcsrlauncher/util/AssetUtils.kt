@@ -1,5 +1,6 @@
 package com.redlimerl.mcsrlauncher.util
 
+import com.google.common.hash.HashFunction
 import com.google.common.hash.Hashing
 import com.google.common.io.Files
 import com.redlimerl.mcsrlauncher.MCSRLauncher
@@ -23,9 +24,19 @@ import kotlin.math.pow
 
 object AssetUtils {
 
-    fun compareHash(file: File, sha1: String): Boolean {
-        @Suppress("DEPRECATION")
-        return Files.asByteSource(file).hash(Hashing.sha1()).toString() == sha1
+    @Suppress("DEPRECATION")
+    fun getHashFunction(hashType: String): HashFunction {
+        return when(hashType) {
+            "sha1" -> Hashing.sha1()
+            "sha256" -> Hashing.sha256()
+            "sha384" -> Hashing.sha384()
+            "sha512" -> Hashing.sha512()
+            else -> throw IllegalArgumentException()
+        }
+    }
+
+    fun compareHash(file: File, sha1: String, hashing: HashFunction = getHashFunction("sha1")): Boolean {
+        return Files.asByteSource(file).hash(hashing).toString() == sha1
     }
 
     fun calculateSha256(inputStream: InputStream): String {

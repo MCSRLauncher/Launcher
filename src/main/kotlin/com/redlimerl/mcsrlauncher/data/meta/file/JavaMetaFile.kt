@@ -48,7 +48,7 @@ data class JavaRuntime(
     val vendor: String,
     val packageType: String,
     val downloadType: JavaRuntimeDownloadType,
-    val checksum: JavaRuntimeChecksum,
+    val checksum: FileChecksum,
     val url: String
 )
 
@@ -68,12 +68,6 @@ data class JavaRuntimeVersion(
         }
     }
 }
-
-@Serializable
-data class JavaRuntimeChecksum(
-    val type: String,
-    val hash: String
-)
 
 @Serializable
 enum class JavaRuntimeDownloadType {

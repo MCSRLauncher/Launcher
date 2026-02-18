@@ -12,7 +12,7 @@ import javax.swing.SwingUtilities
 
 private const val MAX_LOG_ARCHIVE = 5000
 
-class LauncherLogAppender(private val layout: PatternLayout)
+class LauncherLogAppender(private val layout: PatternLayout = PatternLayout.newBuilder().withPattern("[%d{HH:mm:ss}] [%p] %msg%replace{%throwable}{^(.+)$}{%n$1}").build())
     : AbstractAppender("Appender", null, layout, false, Property.EMPTY_ARRAY) {
 
     private var logArchive: MutableList<String> = LinkedList()

@@ -10,8 +10,8 @@ import java.awt.*;
 public class SpeedrunToolsBrowseDialog extends JDialog {
     private JPanel contentPane;
     public JButton buttonCancel;
-    public JPanel toolsListPanel;
-    public JScrollPane toolsScrollPane;
+    public JPanel programsListPanel;
+    public JScrollPane programsScrollPane;
 
     public SpeedrunToolsBrowseDialog(Window window) {
         super(window);
@@ -47,11 +47,11 @@ public class SpeedrunToolsBrowseDialog extends JDialog {
         buttonCancel = new JButton();
         buttonCancel.setText("Cancel");
         panel2.add(buttonCancel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
-        toolsScrollPane = new JScrollPane();
-        contentPane.add(toolsScrollPane, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
-        toolsListPanel = new JPanel();
-        toolsListPanel.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
-        toolsScrollPane.setViewportView(toolsListPanel);
+        programsScrollPane = new JScrollPane();
+        contentPane.add(programsScrollPane, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        programsListPanel = new JPanel();
+        programsListPanel.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        programsScrollPane.setViewportView(programsListPanel);
     }
 
     /**

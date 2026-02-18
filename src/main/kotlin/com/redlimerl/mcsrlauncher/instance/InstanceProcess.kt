@@ -5,10 +5,7 @@ import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.meta.LauncherTrait
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
-import com.redlimerl.mcsrlauncher.data.meta.file.FabricIntermediaryMetaFile
-import com.redlimerl.mcsrlauncher.data.meta.file.FabricLoaderMetaFile
-import com.redlimerl.mcsrlauncher.data.meta.file.LWJGLMetaFile
-import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMetaFile
+import com.redlimerl.mcsrlauncher.data.meta.file.*
 import com.redlimerl.mcsrlauncher.exception.IllegalRequestResponseException
 import com.redlimerl.mcsrlauncher.exception.InvalidAccessTokenException
 import com.redlimerl.mcsrlauncher.gui.component.LogViewerPanel
@@ -40,9 +37,11 @@ class InstanceProcess(val instance: BasicInstance) {
         private set
     private var exitByUser = false
 
+    private val preLaunchLogs = arrayListOf<String>()
     private val logArchive: MutableList<String> = Collections.synchronizedList(LinkedList())
     private var logChannel = Channel<String>(10000)
     private var viewerUpdater: Job? = null
+    private val environments = hashMapOf<String, String>()
 
     @OptIn(DelicateCoroutinesApi::class)
     fun start(worker: LauncherWorker) {
@@ -87,6 +86,9 @@ class InstanceProcess(val instance: BasicInstance) {
             "-Xms${instance.options.getSharedJavaValue { it.minMemory }}M",
             "-Xmx${instance.options.getSharedJavaValue { it.maxMemory }}M"
         )
+        if (DeviceOSType.WINDOWS.isOn()) {
+            arguments.add("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump")
+        }
 
         arguments.addAll(instance.options.getSharedJavaValue { it.jvmArguments }.split(" ").flatMap { it.split("\n") }.filter { it.isNotBlank() })
 
@@ -176,23 +178,6 @@ class InstanceProcess(val instance: BasicInstance) {
 
         libraries.add(mainJar)
 
-        if (preLaunchCommand.isNotBlank()) {
-            GlobalScope.launch {
-                logChannel.send("Running pre-launch command:\n$preLaunchCommand\n\n")
-                try {
-                    val pre = ProcessBuilder("sh", "-c", preLaunchCommand)
-                        .directory(instance.getGamePath().toFile())
-                        .redirectErrorStream(true)
-                        .start()
-                    val exitCode = pre.waitFor()
-                    if (exitCode == 0) logChannel.send("Pre-launch command finished successfully.\n\n")
-                    else logChannel.send("WARN: Pre-launch command exited with code $exitCode.\n\n")
-                } catch (e: Exception) {
-                    logChannel.send("WARN: Failed to run pre-launch command: ${e.message}\n\n")
-                }
-            }
-        }
-
         val gameLaunchArgs = mutableListOf<String>()
         gameLaunchArgs += javaTarget
         gameLaunchArgs += "-Djava.library.path=${instance.getNativePath().absolutePathString()}"
@@ -216,12 +201,82 @@ class InstanceProcess(val instance: BasicInstance) {
         // GAME_SCRIPT includes mangohud/gamemoderun so wrapper commands get them too
         val finalGameScript = gamePrefixStr + gameScript
 
+        environments.clear()
+        environments.apply {
+            put("INST_ID", instance.id)
+            put("INST_NAME", instance.displayName)
+            put("INST_DIR", instance.getInstancePath().absolutePathString())
+            put("INST_MC_DIR", instance.getGamePath().absolutePathString())
+            put("INST_MC_VER", instance.minecraftVersion)
+            put("INST_JAVA", javaContainer.path.absolutePathString())
+            put("INST_JAVA_ARGS", arguments.joinToString(" "))
+            put("GAME_SCRIPT", finalGameScript)
+            if (useDiscreteGpu) put("DRI_PRIME", "1")
+            if (useZink) put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
+            if (enableEnvironmentVariables) {
+                environmentVariables.forEach { (key, value) ->
+                    if (key.isNotBlank()) put(key, value)
+                }
+            }
+        }
+
+        if (preLaunchCommand.isNotBlank()) {
+            addLog("Running pre-launch command:\n$preLaunchCommand\n\n")
+            try {
+                val cmd = DeviceOSType.CURRENT_OS.shellFlags.plusElement(DeviceOSType.CURRENT_OS.commandLauncher.invoke(preLaunchCommand))
+                val process = ProcessBuilder(cmd)
+                    .directory(instance.getInstancePath().toFile())
+                    .redirectErrorStream(true)
+                    .inheritIO()
+                    .apply { environment().putAll(environments) }
+                    .start()
+                val exitCode = process.waitFor()
+                if (exitCode == 0) addLog("Pre-launch command finished successfully.\n\n")
+                else addLog("WARN: Pre-launch command exited with code $exitCode.\n\n")
+            } catch (e: Exception) {
+                addLog("WARN: Failed to run pre-launch command: ${e.message}\n\n")
+            }
+        }
+
+        // Toolscreen Launch
+        if (instance.options.enableToolscreen && instance.options.selectToolscreenVersion.isNotBlank()) {
+            val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen", worker)
+            val toolscreenFile = instance.getToolscreenFile()
+            if (toolscreenMeta != null && toolscreenFile != null && toolscreenMeta.tool.shouldApply()) {
+                for (version in toolscreenMeta.tool.versions) {
+                    if (version.name == instance.options.selectToolscreenVersion) {
+                        if (!AssetUtils.compareHash(toolscreenFile, version.checksum.hash, AssetUtils.getHashFunction(version.checksum.type))) {
+                            addLog("WARNING! INCORRECT HASH TOOLSCREEN HAS DETECTED! SKIPPED TO RUN\n\n")
+                        } else {
+                            GlobalScope.launch {
+                                addLog("Running Toolscreen...")
+                                try {
+                                    val process = ProcessBuilder(listOf(javaContainer.path.absolutePathString(), "-jar", toolscreenFile.absolutePath))
+                                        .directory(instance.getInstancePath().toFile())
+                                        .redirectErrorStream(true)
+                                        .inheritIO()
+                                        .apply { environment().putAll(environments) }
+                                        .start()
+                                    val exitCode = process.waitFor()
+                                    if (exitCode == 0) addLog("Toolscreen launched successfully.\n\n")
+                                    else addLog("WARN: Toolscreen launch failed with code $exitCode.\n\n")
+                                } catch (e: Exception) {
+                                    addLog("WARN: Failed to run toolscreen launch command: ${e.message}\n\n")
+                                }
+                            }
+                        }
+                        break
+                    }
+                }
+            }
+        }
+
         val finalLaunchArgs = mutableListOf<String>()
         val useShellWrapper = wrapperCmd.contains("\$GAME_SCRIPT") || wrapperCmd.contains("\${GAME_SCRIPT}")
 
         if (wrapperCmd.isNotBlank()) {
             if (useShellWrapper) {
-                finalLaunchArgs += listOf("sh", "-c", wrapperCmd)
+                finalLaunchArgs += DeviceOSType.CURRENT_OS.shellFlags.plusElement(wrapperCmd)
             } else {
                 // Simple wrapper without $GAME_SCRIPT - prepend mangohud/gamemoderun
                 finalLaunchArgs += gamePrefixes
@@ -242,29 +297,12 @@ class InstanceProcess(val instance: BasicInstance) {
             val pb = ProcessBuilder(finalLaunchArgs)
                 .directory(instance.getGamePath().toFile())
                 .redirectErrorStream(true)
-            pb.environment().apply {
-                put("INST_ID", instance.id)
-                put("INST_NAME", instance.displayName)
-                put("INST_DIR", instance.getInstancePath().absolutePathString())
-                put("INST_MC_DIR", instance.getGamePath().absolutePathString())
-                put("INST_MC_VER", instance.minecraftVersion)
-                put("INST_JAVA", javaContainer.path.absolutePathString())
-                put("INST_JAVA_ARGS", arguments.joinToString(" "))
-                put("GAME_SCRIPT", finalGameScript)
-                if (useDiscreteGpu) put("DRI_PRIME", "1")
-                if (useZink) put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
-                if (enableEnvironmentVariables) {
-                    environmentVariables.forEach { (key, value) ->
-                        if (key.isNotBlank()) put(key, value)
-                    }
-                }
-            }
+            pb.environment().putAll(environments)
             val process = pb.start()
 
             launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
                     lines.forEach { line ->
-                        logChannel.send(line)
                         addLog(line)
                     }
                 }
@@ -274,11 +312,13 @@ class InstanceProcess(val instance: BasicInstance) {
             MCSRLauncher.GAME_PROCESSES.add(this@InstanceProcess)
             instance.onLaunch()
 
+            preLaunchLogs.forEach { addLog(it) }
+
             val javaArch = if (javaContainer.arch.contains("64")) "x64" else "x86"
 
             val initialLogs = mutableListOf(
                 "${MCSRLauncher.APP_NAME} version: ${MCSRLauncher.APP_VERSION}\n\n",
-                "Minecraft folder is:\n${instance.getGamePath().absolutePathString()}\n\n",
+                "Minecraft folder is:\n${pb.directory().absolutePath}\n\n",
                 "Java path is:\n${javaContainer.path}\n\n",
                 "Java is version: ${javaContainer.version} using $javaArch architecture from ${javaContainer.vendor}\n\n",
                 "Java arguments are:\n${arguments.joinToString(" ")}\n\n",
@@ -316,11 +356,19 @@ class InstanceProcess(val instance: BasicInstance) {
         }
     }
 
-    suspend fun addLog(logString: String) {
-        synchronized(logArchive) {
-            logArchive.add(logString)
-            if (logArchive.size > MAX_LOG_ARCHIVED_COUNT) {
-                logArchive.removeAt(0)
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun addLog(logString: String) {
+        if (process == null) {
+            preLaunchLogs += logString
+        } else {
+            GlobalScope.launch {
+                logChannel.send(logString)
+            }
+            synchronized(logArchive) {
+                logArchive.add(logString)
+                if (logArchive.size > MAX_LOG_ARCHIVED_COUNT) {
+                    logArchive.removeAt(0)
+                }
             }
         }
     }
@@ -388,17 +436,20 @@ class InstanceProcess(val instance: BasicInstance) {
         val postExitCommand = instance.options.getSharedWorkaroundValue { it.postExitCommand }
         if (postExitCommand.isNotBlank()) {
             GlobalScope.launch {
-                logChannel.send("Running post-exit command:\n$postExitCommand\n\n")
+                addLog("Running post-exit command:\n$postExitCommand\n\n")
                 try {
-                    val post = ProcessBuilder("sh", "-c", postExitCommand)
-                        .directory(instance.getGamePath().toFile())
+                    val cmd = DeviceOSType.CURRENT_OS.shellFlags.plusElement(DeviceOSType.CURRENT_OS.commandLauncher.invoke(postExitCommand))
+                    val process = ProcessBuilder(cmd)
+                        .directory(instance.getInstancePath().toFile())
                         .redirectErrorStream(true)
+                        .inheritIO()
+                        .apply { environment().putAll(environments) }
                         .start()
-                    val exitCode = post.waitFor()
-                    if (exitCode == 0) logChannel.send("Post-exit command ran successfully.\n\n")
-                    else logChannel.send("WARN: Post-exit command exited with code $exitCode.\n\n")
+                    val exitCode = process.waitFor()
+                    if (exitCode == 0) addLog("Post-exit command ran successfully.\n\n")
+                    else addLog("WARN: Post-exit command exited with code $exitCode.\n\n")
                 } catch (e: Exception) {
-                    logChannel.send("WARN: Failed to run post-exit command: ${e.message}\n\n")
+                    addLog("WARN: Failed to run post-exit command: ${e.message}\n\n")
                 }
                 logChannel.close()
             }

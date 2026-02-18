@@ -6,11 +6,11 @@ import oshi.PlatformEnum
 import oshi.SystemInfo
 
 @Serializable
-enum class DeviceOSType {
+enum class DeviceOSType(val shellFlags: List<String>, val commandLauncher: (String) -> String) {
 
-    @SerialName("windows") WINDOWS,
-    @SerialName("linux") LINUX,
-    @SerialName("osx") MACOS;
+    @SerialName("windows") WINDOWS(listOf("cmd", "/c"), { st -> "\"${st.replace(Regex("\\$(\\w+)")) { "%${it.groupValues[1]}%" }}\"" }),
+    @SerialName("linux") LINUX(listOf("sh", "c"), { st -> st }),
+    @SerialName("osx") MACOS(listOf("sh", "c"), { st -> st });
 
     companion object {
         val CURRENT_OS = let {
