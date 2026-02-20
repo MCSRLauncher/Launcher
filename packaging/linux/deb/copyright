@@ -1,0 +1,12 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: mcsrlauncher
+Upstream-Contact: MCSR Launcher Team
+Source: https://github.com/MCSRLauncher/Launcher
+
+Files: *
+Copyright: 2024-2026 MCSR Launcher Team
+License: GPL-3.0-or-later
+
+License: GPL-3.0-or-later
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in /usr/share/common-licenses/GPL-3.

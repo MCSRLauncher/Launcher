@@ -1,0 +1,342 @@
+name: Publish Linux Packages
+
+on:
+  workflow_run:
+    workflows: ["Build and Release Installer"]
+    types: [completed]
+
+jobs:
+  publish-aur:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get release tag
+        id: tag
+        run: echo "version=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+
+      - name: Download JAR and compute sha256
+        id: hash
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          curl -sL "https://github.com/MCSRLauncher/Launcher/releases/download/${VERSION}/MCSRLauncher.jar" \
+            -o /tmp/MCSRLauncher.jar
+          SHA256=$(sha256sum /tmp/MCSRLauncher.jar | cut -d' ' -f1)
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+          # AUR uses underscores instead of hyphens
+          VERSION_UNDERSCORE=$(echo "$VERSION" | sed 's/-/_/g')
+          echo "version_underscore=${VERSION_UNDERSCORE}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate PKGBUILD from template
+        run: |
+          sed -e "s/__VERSION_UNDERSCORE__/${{ steps.hash.outputs.version_underscore }}/g" \
+              -e "s/__SHA256__/${{ steps.hash.outputs.sha256 }}/g" \
+              packaging/linux/aur/PKGBUILD.template > /tmp/PKGBUILD
+
+      - name: Generate .SRCINFO
+        run: |
+          VERSION_UNDERSCORE="${{ steps.hash.outputs.version_underscore }}"
+          VERSION_HYPHEN="${{ steps.tag.outputs.version }}"
+          SHA256="${{ steps.hash.outputs.sha256 }}"
+          cat > /tmp/.SRCINFO << SRCINFO
+          pkgbase = mcsrlauncher
+          	pkgdesc = Minecraft Launcher written in Kotlin. Made for MCSR Community and MCSR Ranked
+          	pkgver = ${VERSION_UNDERSCORE}
+          	pkgrel = 1
+          	url = https://github.com/MCSRLauncher/Launcher
+          	arch = any
+          	license = GPL-3.0-or-later
+          	depends = java-runtime>=17
+          	depends = hicolor-icon-theme
+          	source = MCSRLauncher-${VERSION_UNDERSCORE}.jar::https://github.com/MCSRLauncher/Launcher/releases/download/${VERSION_HYPHEN}/MCSRLauncher.jar
+          	sha256sums = ${SHA256}
+
+          pkgname = mcsrlauncher
+          SRCINFO
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' /tmp/.SRCINFO
+
+      - name: Setup SSH for AUR
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          echo "Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            User aur
+            StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+      - name: Push to AUR
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          git config --global user.name "flammable_bunny"
+          git config --global user.email "theflammablebunny@gmail.com"
+          git clone ssh://aur@aur.archlinux.org/mcsrlauncher.git /tmp/aur-repo
+          cp /tmp/PKGBUILD /tmp/aur-repo/PKGBUILD
+          cp /tmp/.SRCINFO /tmp/aur-repo/.SRCINFO
+          cd /tmp/aur-repo
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to ${VERSION}"
+          git push origin master
+
+  publish-copr:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get release tag
+        id: tag
+        run: echo "version=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+
+      - name: Download JAR and compute sha256
+        id: hash
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          curl -sL "https://github.com/MCSRLauncher/Launcher/releases/download/${VERSION}/MCSRLauncher.jar" \
+            -o /tmp/MCSRLauncher.jar
+          # RPM uses tilde instead of hyphen for pre-release
+          VERSION_TILDE=$(echo "$VERSION" | sed 's/-/~/')
+          echo "version_tilde=${VERSION_TILDE}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate spec from template
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          VERSION_TILDE="${{ steps.hash.outputs.version_tilde }}"
+          RPM_DATE=$(date -u '+%a %b %d %Y')
+          sed -e "s/__VERSION_TILDE__/${VERSION_TILDE}/g" \
+              -e "s/__VERSION_HYPHEN__/${VERSION}/g" \
+              -e "s/__DATE__/${RPM_DATE}/g" \
+              packaging/linux/rpm/mcsrlauncher.spec.template > /tmp/mcsrlauncher.spec
+
+      - name: Setup rpmbuild sources
+        run: |
+          mkdir -p ~/rpmbuild/{SPECS,SOURCES}
+          cp /tmp/mcsrlauncher.spec ~/rpmbuild/SPECS/
+          cp /tmp/MCSRLauncher.jar ~/rpmbuild/SOURCES/
+          cp packaging/linux/mcsrlauncher.desktop ~/rpmbuild/SOURCES/
+          # Extract icon from JAR
+          cd /tmp && jar xf /tmp/MCSRLauncher.jar icons/launcher/icon.png
+          cp /tmp/icons/launcher/icon.png ~/rpmbuild/SOURCES/mcsrlauncher.png
+
+      - name: Install rpmbuild
+        run: sudo apt-get install -y rpm
+
+      - name: Build SRPM
+        run: rpmbuild --define "_topdir $HOME/rpmbuild" -bs ~/rpmbuild/SPECS/mcsrlauncher.spec
+
+      - name: Install copr-cli
+        run: pip install copr-cli
+
+      - name: Configure copr-cli
+        run: |
+          mkdir -p ~/.config
+          echo "${{ secrets.COPR_API_TOKEN }}" > ~/.config/copr
+
+      - name: Upload to COPR
+        run: |
+          SRPM=$(ls ~/rpmbuild/SRPMS/*.src.rpm)
+          copr-cli build flammablebunny/mcsrlauncher "$SRPM"
+
+  publish-launchpad:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get release tag
+        id: tag
+        run: echo "version=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup version strings
+        id: ver
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          VERSION_TILDE=$(echo "$VERSION" | sed 's/-/~/')
+          DEB_DATE=$(date -u -R)
+          echo "version_tilde=${VERSION_TILDE}" >> "$GITHUB_OUTPUT"
+          echo "version_hyphen=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "deb_date=${DEB_DATE}" >> "$GITHUB_OUTPUT"
+
+      - name: Import GPG key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          GPG_KEY_ID=$(gpg --list-secret-keys --keyid-format long | grep sec | head -1 | awk '{print $2}' | cut -d/ -f2)
+          echo "gpg_key_id=${GPG_KEY_ID}" >> "$GITHUB_ENV"
+
+      - name: Download JAR and prepare source package
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          VERSION_TILDE="${{ steps.ver.outputs.version_tilde }}"
+          DEB_DATE="${{ steps.ver.outputs.deb_date }}"
+          PKG="mcsrlauncher"
+          WORK_DIR="/tmp/${PKG}-${VERSION_TILDE}"
+
+          mkdir -p "${WORK_DIR}/debian/source"
+
+          # Copy debian files
+          cp packaging/linux/deb/control "${WORK_DIR}/debian/"
+          cp packaging/linux/deb/copyright "${WORK_DIR}/debian/"
+          echo "13" > "${WORK_DIR}/debian/compat"
+          echo "3.0 (quilt)" > "${WORK_DIR}/debian/source/format"
+
+          # Generate changelog from template
+          sed -e "s/__VERSION_TILDE__/${VERSION_TILDE}/g" \
+              -e "s/__VERSION_HYPHEN__/${VERSION}/g" \
+              -e "s/__DATE__/${DEB_DATE}/g" \
+              packaging/linux/deb/changelog.template > "${WORK_DIR}/debian/changelog"
+
+          # Create debian/rules
+          cat > "${WORK_DIR}/debian/rules" << 'RULES'
+          #!/usr/bin/make -f
+          %:
+          	dh $@
+
+          override_dh_auto_install:
+          	mkdir -p debian/mcsrlauncher/usr/share/java/mcsrlauncher
+          	mkdir -p debian/mcsrlauncher/usr/bin
+          	mkdir -p debian/mcsrlauncher/usr/share/applications
+          	mkdir -p debian/mcsrlauncher/usr/share/icons/hicolor/128x128/apps
+          	cp MCSRLauncher.jar debian/mcsrlauncher/usr/share/java/mcsrlauncher/
+          	cp mcsrlauncher.desktop debian/mcsrlauncher/usr/share/applications/
+          	cp mcsrlauncher.png debian/mcsrlauncher/usr/share/icons/hicolor/128x128/apps/
+          	cp mcsrlauncher.sh debian/mcsrlauncher/usr/bin/mcsrlauncher
+          	chmod +x debian/mcsrlauncher/usr/bin/mcsrlauncher
+          RULES
+          # Fix heredoc indentation - rules file needs tabs
+          sed -i 's/^          //' "${WORK_DIR}/debian/rules"
+          chmod +x "${WORK_DIR}/debian/rules"
+
+          # Download JAR + copy assets
+          curl -sL "https://github.com/MCSRLauncher/Launcher/releases/download/${VERSION}/MCSRLauncher.jar" \
+            -o "${WORK_DIR}/MCSRLauncher.jar"
+          cp packaging/linux/mcsrlauncher.desktop "${WORK_DIR}/"
+          cp packaging/linux/mcsrlauncher.sh "${WORK_DIR}/"
+
+          # Extract icon
+          cd "${WORK_DIR}"
+          jar xf MCSRLauncher.jar icons/launcher/icon.png
+          cp icons/launcher/icon.png mcsrlauncher.png
+          rm -rf icons META-INF
+
+          # Create orig tarball
+          cd /tmp
+          tar czf "${PKG}_${VERSION_TILDE}.orig.tar.gz" "${PKG}-${VERSION_TILDE}"
+
+          # Create debian tarball
+          cd "${WORK_DIR}"
+          tar czf "/tmp/${PKG}_${VERSION_TILDE}-1.debian.tar.gz" debian/
+
+      - name: Generate and sign .dsc and .changes
+        run: |
+          VERSION_TILDE="${{ steps.ver.outputs.version_tilde }}"
+          VERSION="${{ steps.ver.outputs.version_hyphen }}"
+          DEB_DATE="${{ steps.ver.outputs.deb_date }}"
+          PKG="mcsrlauncher"
+
+          # Calculate checksums
+          ORIG_SHA256=$(sha256sum "/tmp/${PKG}_${VERSION_TILDE}.orig.tar.gz" | cut -d' ' -f1)
+          ORIG_SIZE=$(stat -c%s "/tmp/${PKG}_${VERSION_TILDE}.orig.tar.gz")
+          DEB_SHA256=$(sha256sum "/tmp/${PKG}_${VERSION_TILDE}-1.debian.tar.gz" | cut -d' ' -f1)
+          DEB_SIZE=$(stat -c%s "/tmp/${PKG}_${VERSION_TILDE}-1.debian.tar.gz")
+          ORIG_MD5=$(md5sum "/tmp/${PKG}_${VERSION_TILDE}.orig.tar.gz" | cut -d' ' -f1)
+          DEB_MD5=$(md5sum "/tmp/${PKG}_${VERSION_TILDE}-1.debian.tar.gz" | cut -d' ' -f1)
+
+          # Generate .dsc
+          cat > "/tmp/${PKG}_${VERSION_TILDE}-1.dsc" << DSC
+          Format: 3.0 (quilt)
+          Source: ${PKG}
+          Binary: ${PKG}
+          Architecture: all
+          Version: ${VERSION_TILDE}-1
+          Maintainer: flammablebunny <theflammablebunny@gmail.com>
+          Homepage: https://github.com/MCSRLauncher/Launcher
+          Standards-Version: 4.6.0
+          Build-Depends: debhelper-compat (= 13)
+          Checksums-Sha256:
+           ${ORIG_SHA256} ${ORIG_SIZE} ${PKG}_${VERSION_TILDE}.orig.tar.gz
+           ${DEB_SHA256} ${DEB_SIZE} ${PKG}_${VERSION_TILDE}-1.debian.tar.gz
+          Files:
+           ${ORIG_MD5} ${ORIG_SIZE} ${PKG}_${VERSION_TILDE}.orig.tar.gz
+           ${DEB_MD5} ${DEB_SIZE} ${PKG}_${VERSION_TILDE}-1.debian.tar.gz
+          DSC
+          sed -i 's/^          //' "/tmp/${PKG}_${VERSION_TILDE}-1.dsc"
+
+          # Sign .dsc
+          gpg --batch --yes --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+              --pinentry-mode loopback \
+              --default-key "${{ env.gpg_key_id }}" \
+              --clearsign "/tmp/${PKG}_${VERSION_TILDE}-1.dsc"
+          mv "/tmp/${PKG}_${VERSION_TILDE}-1.dsc.asc" "/tmp/${PKG}_${VERSION_TILDE}-1.dsc"
+
+          # Generate .changes
+          DSC_SHA256=$(sha256sum "/tmp/${PKG}_${VERSION_TILDE}-1.dsc" | cut -d' ' -f1)
+          DSC_SIZE=$(stat -c%s "/tmp/${PKG}_${VERSION_TILDE}-1.dsc")
+          DSC_MD5=$(md5sum "/tmp/${PKG}_${VERSION_TILDE}-1.dsc" | cut -d' ' -f1)
+
+          cat > "/tmp/${PKG}_${VERSION_TILDE}-1_source.changes" << CHANGES
+          Format: 1.8
+          Date: ${DEB_DATE}
+          Source: ${PKG}
+          Binary: ${PKG}
+          Architecture: source
+          Version: ${VERSION_TILDE}-1
+          Distribution: noble
+          Urgency: medium
+          Maintainer: flammablebunny <theflammablebunny@gmail.com>
+          Changed-By: flammablebunny <theflammablebunny@gmail.com>
+          Description:
+           ${PKG} - MCSR Launcher
+          Changes:
+           ${PKG} (${VERSION_TILDE}-1) noble; urgency=medium
+           .
+             * Update to ${VERSION}
+          Checksums-Sha256:
+           ${DSC_SHA256} ${DSC_SIZE} ${PKG}_${VERSION_TILDE}-1.dsc
+           ${ORIG_SHA256} ${ORIG_SIZE} ${PKG}_${VERSION_TILDE}.orig.tar.gz
+           ${DEB_SHA256} ${DEB_SIZE} ${PKG}_${VERSION_TILDE}-1.debian.tar.gz
+          Files:
+           ${DSC_MD5} ${DSC_SIZE} games optional ${PKG}_${VERSION_TILDE}-1.dsc
+           ${ORIG_MD5} ${ORIG_SIZE} games optional ${PKG}_${VERSION_TILDE}.orig.tar.gz
+           ${DEB_MD5} ${DEB_SIZE} games optional ${PKG}_${VERSION_TILDE}-1.debian.tar.gz
+          CHANGES
+          sed -i 's/^          //' "/tmp/${PKG}_${VERSION_TILDE}-1_source.changes"
+
+          # Sign .changes
+          gpg --batch --yes --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+              --pinentry-mode loopback \
+              --default-key "${{ env.gpg_key_id }}" \
+              --clearsign "/tmp/${PKG}_${VERSION_TILDE}-1_source.changes"
+          mv "/tmp/${PKG}_${VERSION_TILDE}-1_source.changes.asc" "/tmp/${PKG}_${VERSION_TILDE}-1_source.changes"
+
+      - name: Upload to Launchpad PPA
+        run: |
+          VERSION_TILDE="${{ steps.ver.outputs.version_tilde }}"
+          PKG="mcsrlauncher"
+          python3 << UPLOAD
+          import ftplib
+
+          ftp = ftplib.FTP('ppa.launchpad.net')
+          ftp.login('anonymous', '')
+          ftp.cwd('~flammablebunny/mcsrlauncher')
+
+          files = [
+              '${PKG}_${VERSION_TILDE}-1.dsc',
+              '${PKG}_${VERSION_TILDE}.orig.tar.gz',
+              '${PKG}_${VERSION_TILDE}-1.debian.tar.gz',
+              '${PKG}_${VERSION_TILDE}-1_source.changes',
+          ]
+
+          for f in files:
+              path = '/tmp/' + f
+              print(f'Uploading {f}...')
+              with open(path, 'rb') as fh:
+                  ftp.storbinary(f'STOR {f}', fh)
+
+          ftp.quit()
+          print('Done!')
+          UPLOAD

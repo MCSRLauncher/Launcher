@@ -192,6 +192,15 @@ class InstanceProcess(val instance: BasicInstance) {
             } else arg
         }
 
+        // Build prefix for game launch (mangohud, gamemoderun) to inject before game
+        val gamePrefixes = mutableListOf<String>()
+        if (enableFeralGamemode) gamePrefixes += "gamemoderun"
+        if (enableMangoHud) gamePrefixes += "mangohud"
+        val gamePrefixStr = if (gamePrefixes.isNotEmpty()) gamePrefixes.joinToString(" ") + " " else ""
+
+        // GAME_SCRIPT includes mangohud/gamemoderun so wrapper commands get them too
+        val finalGameScript = gamePrefixStr + gameScript
+
         environments.clear()
         environments.apply {
             put("INST_ID", instance.id)
@@ -201,7 +210,7 @@ class InstanceProcess(val instance: BasicInstance) {
             put("INST_MC_VER", instance.minecraftVersion)
             put("INST_JAVA", javaContainer.path.absolutePathString())
             put("INST_JAVA_ARGS", arguments.joinToString(" "))
-            put("GAME_SCRIPT", gameScript)
+            put("GAME_SCRIPT", finalGameScript)
             if (useDiscreteGpu) put("DRI_PRIME", "1")
             if (useZink) put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
             if (enableEnvironmentVariables) {
@@ -263,19 +272,20 @@ class InstanceProcess(val instance: BasicInstance) {
         }
 
         val finalLaunchArgs = mutableListOf<String>()
-        if (enableFeralGamemode) finalLaunchArgs += "gamemoded"
-        if (enableMangoHud) finalLaunchArgs += "mangohud"
-
         val useShellWrapper = wrapperCmd.contains("\$GAME_SCRIPT") || wrapperCmd.contains("\${GAME_SCRIPT}")
 
         if (wrapperCmd.isNotBlank()) {
             if (useShellWrapper) {
                 finalLaunchArgs += DeviceOSType.CURRENT_OS.shellFlags.plusElement(wrapperCmd)
             } else {
+                // Simple wrapper without $GAME_SCRIPT - prepend mangohud/gamemoderun
+                finalLaunchArgs += gamePrefixes
                 finalLaunchArgs += wrapperCmd.split("\\s+".toRegex())
                 finalLaunchArgs += gameLaunchArgs
             }
         } else {
+            // No wrapper - prepend mangohud/gamemoderun directly
+            finalLaunchArgs += gamePrefixes
             finalLaunchArgs += gameLaunchArgs
         }
 
