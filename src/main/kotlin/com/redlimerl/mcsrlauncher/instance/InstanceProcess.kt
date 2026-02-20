@@ -236,7 +236,7 @@ class InstanceProcess(val instance: BasicInstance) {
             if (toolscreenMeta != null && toolscreenFile != null && toolscreenMeta.tool.shouldApply()) {
                 for (version in toolscreenMeta.tool.versions) {
                     if (version.name == instance.options.selectToolscreenVersion) {
-                        if (!AssetUtils.compareHash(toolscreenFile, version.checksum.hash, AssetUtils.getHashFunction(version.checksum.type))) {
+                        if (!toolscreenFile.exists() || !AssetUtils.compareHash(toolscreenFile, version.checksum.hash, AssetUtils.getHashFunction(version.checksum.type))) {
                             addLog("WARNING! INCORRECT HASH TOOLSCREEN HAS DETECTED! SKIPPED TO RUN\n\n")
                         } else {
                             GlobalScope.launch {

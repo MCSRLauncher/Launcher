@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.JDialog
 import javax.swing.JOptionPane
+import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
@@ -189,8 +190,9 @@ data class BasicInstance(
                     if (version.name == options.selectToolscreenVersion || options.autoToolscreenUpdates) {
                         if (!toolscreenFile.exists() || !AssetUtils.compareHash(toolscreenFile, version.checksum.hash, AssetUtils.getHashFunction(version.checksum.type))) {
                             worker.setState("Downloading ${version.name}...")
-                            version.install(worker, this, toolscreenMeta.tool)
                             options.selectToolscreenVersion = version.name
+                            version.install(worker, this, toolscreenMeta.tool)
+                            if (version.name != toolscreenFile.name) toolscreenFile.toPath().deleteIfExists()
                             save()
                         }
                         break
