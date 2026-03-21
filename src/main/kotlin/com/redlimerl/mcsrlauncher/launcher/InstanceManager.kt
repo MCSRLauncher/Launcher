@@ -7,7 +7,10 @@ import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.instance.FabricVersionData
 import com.redlimerl.mcsrlauncher.data.instance.LWJGLVersionData
 import com.redlimerl.mcsrlauncher.data.instance.mcsrranked.MCSRRankedPackType
+import kotlinx.serialization.SerializationException
 import java.nio.file.Path
+import javax.swing.JOptionPane
+import kotlin.system.exitProcess
 
 object InstanceManager {
 
@@ -21,12 +24,40 @@ object InstanceManager {
         migrateOldConfig()
 
         INSTANCES_PATH.toFile().mkdirs()
+        var corruptedInstances = ArrayList<String>()
         for (file in INSTANCES_PATH.toFile().listFiles()!!) {
             if (file.exists() && file.isDirectory) {
                 val configFile = file.toPath().resolve("instance.json").toFile()
-                if (configFile.exists()) addInstance(JSON.decodeFromString(configFile.readText()), true)
+                if (configFile.exists()) {
+                    try {
+                        addInstance(JSON.decodeFromString(configFile.readText()), true)
+                    } catch (e: SerializationException) {
+                        val instanceName = file.name
+                        MCSRLauncher.LOGGER.error("Instance config for '{}' appears to be corrupted, skipping...", instanceName)
+                        corruptedInstances.add(instanceName)
+                    }
+                }
             }
         }
+
+        if(corruptedInstances.isNotEmpty()) {
+            var instanceText = ""
+            for(instanceName in corruptedInstances) {
+                instanceText += instanceName + "\n"
+            }
+            val continueConfirm = JOptionPane.showConfirmDialog(
+                null,
+                "The following instances had invalid config files:\n${instanceText}\nDo you wish to continue?",
+                "Warning!",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            )
+
+            if (continueConfirm == JOptionPane.NO_OPTION) {
+                exitProcess(-1)
+            }
+        }
+
         updateInstancesSort()
     }
 
