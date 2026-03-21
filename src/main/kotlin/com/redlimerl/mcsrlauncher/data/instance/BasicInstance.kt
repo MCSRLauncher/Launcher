@@ -1,8 +1,10 @@
 package com.redlimerl.mcsrlauncher.data.instance
 
 import com.redlimerl.mcsrlauncher.MCSRLauncher
+import com.redlimerl.mcsrlauncher.data.InstanceVersion
 import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.mcsrranked.MCSRRankedPackType
+import com.redlimerl.mcsrlauncher.data.meta.IntermediaryType
 import com.redlimerl.mcsrlauncher.data.meta.LauncherTrait
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MetaVersionFile
@@ -474,5 +476,103 @@ data class BasicInstance(
         if (options.selectToolscreenVersion.isBlank()) return null
         val file = this.getInstancePath().resolve(options.selectToolscreenVersion).toFile()
         return if (file.isFile || !file.exists()) file else null
+    }
+
+    companion object {
+        fun guessInstanceConfig(instanceFolder: File): BasicInstance {
+            val id = instanceFolder.name
+            val displayName = id
+            val group = ""
+
+            val minecraftFolder = instanceFolder.resolve(".minecraft")
+            if (!minecraftFolder.exists())
+                error("Instance missing .minecraft folder")
+
+            val optionsTxt = minecraftFolder.resolve("options.txt")
+            if (!optionsTxt.exists())
+                error("Instance missing options.txt")
+
+            val instanceVersion = InstanceVersion.Companion.fromOptionsTxt(optionsTxt)
+                ?: error("options.txt does not contain a version field (is your instance pre-1.10?)")
+            val minecraftVersion = instanceVersion.getMinecraftVersion()
+
+            var options = InstanceOptions()
+            //Check for toolscreen
+            val toolscreenJar = instanceFolder.listFiles { dir, name -> name.startsWith("Toolscreen") }.firstOrNull()
+            if (toolscreenJar != null) {
+                options.enableToolscreen = true
+                options.selectToolscreenVersion = toolscreenJar.name
+            }
+
+            val modsFolder = minecraftFolder.resolve("mods")
+
+            //Check for mcsr ranked
+            var mcsrRankedType: MCSRRankedPackType? = null
+            if (minecraftFolder.resolve("mcsrranked").exists()) {
+                //Look for specific mods to guess type
+                //Sodium? (basic, standardsettings, rsg)
+                val hasSodium = modsFolder.list { dir, name -> name.startsWith("sodium") }.isNotEmpty()
+
+                //Standard settings? (standardsettings, rsg)
+                val hasStandardSettings =
+                    modsFolder.list { dir, name -> name.startsWith("standardsettings") }.isNotEmpty()
+
+                //Fair play? (rsg)
+                val hasFairPlay = modsFolder.list { dir, name -> name.startsWith("mcsrfairplay") }.isNotEmpty()
+
+                if (!hasSodium) {
+                    //MCSR Ranked only
+                    check(!hasStandardSettings) { "Instance ${instanceFolder.name} looks like MCSR Ranked Only, but has standard settings!" }
+                    check(!hasFairPlay) { "Instance ${instanceFolder.name} looks like MCSR Ranked Only, but has fair play!" }
+
+                    mcsrRankedType = MCSRRankedPackType.MOD_ONLY
+                } else if (!hasStandardSettings) {
+                    check(!hasFairPlay) { "Instance ${instanceFolder.name} looks like basic pack, but has standard settings!" }
+
+                    mcsrRankedType = MCSRRankedPackType.BASIC
+                } else if (!hasFairPlay) {
+                    mcsrRankedType = MCSRRankedPackType.STANDARD_SETTINGS
+                } else {
+                    mcsrRankedType = MCSRRankedPackType.ALL
+                }
+            }
+
+            val fabricFolder = minecraftFolder.resolve(".fabric")
+            val fabricVersion = if (fabricFolder.exists()) {
+                val remappedFolder = fabricFolder.resolve("remappedJars").listFiles().first()
+                val remappedRegex = Regex("minecraft-([0-9.]+)-([0-9.]+)")
+                val match = remappedRegex.matchEntire(remappedFolder.name)
+                check(match != null) { "Unexpected remapped name format '${remappedFolder.name}'" }
+                val remappedMcVersion = match.groups[1]!!.value
+                check(remappedMcVersion == minecraftVersion) { "Minecraft version from fabric doesn't match that of options.txt!" }
+                val loaderVersion = match.groups[2]!!.value
+                MCSRLauncher.LOGGER.warn("Assuming intermediary type, this is untested!")
+                FabricVersionData(
+                    loaderVersion,
+                    IntermediaryType.FABRIC, //TODO: We can't just assume this in general
+                    remappedMcVersion
+                )
+
+            } else null
+
+            val lwjglVersion: LWJGLVersionData = if (mcsrRankedType != null) {
+                LWJGLVersionData(MetaUniqueID.LWJGL3, "3.3.3")
+            } else {
+                MCSRLauncher.LOGGER.warn("Assuming LWJGL3 v3.3.3, this is untested!")
+                LWJGLVersionData(MetaUniqueID.LWJGL3, "3.3.3")
+            }
+
+            return BasicInstance(
+                id,
+                displayName,
+                group,
+                minecraftVersion,
+                lwjglVersion,
+                fabricVersion,
+                mcsrRankedType,
+                options,
+                playTime = 0,
+            )
+        }
     }
 }
