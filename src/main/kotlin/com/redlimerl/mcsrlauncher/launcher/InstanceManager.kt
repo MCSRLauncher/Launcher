@@ -41,20 +41,40 @@ object InstanceManager {
         }
 
         if(corruptedInstances.isNotEmpty()) {
-            var instanceText = ""
+            var instanceListText = ""
             for(instanceName in corruptedInstances) {
-                instanceText += instanceName + "\n"
+                instanceListText += instanceName + "\n"
             }
-            val continueConfirm = JOptionPane.showConfirmDialog(
+
+            val options = arrayOf("Skip corrupted instances", "Regenerate configurations", "Exit")
+            val selectedOption = JOptionPane.showOptionDialog(
                 null,
-                "The following instances had invalid config files:\n${instanceText}\nDo you wish to continue?",
+                """
+                    |The following instances have invalid config files:
+                    |${instanceListText}
+                    |These instances will be unusable until the issue is resolved.
+                    |What would you like to do? Note that config regeneration is experimental
+                """.trimMargin(),
                 "Warning!",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.ERROR_MESSAGE,
+                null,
+                options, options[0]
             )
 
-            if (continueConfirm == JOptionPane.NO_OPTION) {
-                exitProcess(-1)
+            when (selectedOption) {
+                0 -> {
+                    //Skip
+                }
+                1 -> {
+                    //Regen
+                    MCSRLauncher.LOGGER.error("TODO: Config regeneration")
+                    exitProcess(-2)
+                }
+                2 -> {
+                    //Exit
+                    exitProcess(-1)
+                }
             }
         }
 
