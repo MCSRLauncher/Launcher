@@ -7,7 +7,11 @@ import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.instance.FabricVersionData
 import com.redlimerl.mcsrlauncher.data.instance.LWJGLVersionData
 import com.redlimerl.mcsrlauncher.data.instance.mcsrranked.MCSRRankedPackType
+import kotlinx.serialization.SerializationException
+import java.io.File
 import java.nio.file.Path
+import javax.swing.JOptionPane
+import kotlin.system.exitProcess
 
 object InstanceManager {
 
@@ -21,12 +25,68 @@ object InstanceManager {
         migrateOldConfig()
 
         INSTANCES_PATH.toFile().mkdirs()
+        var corruptedInstances = ArrayList<File>()
         for (file in INSTANCES_PATH.toFile().listFiles()!!) {
             if (file.exists() && file.isDirectory) {
                 val configFile = file.toPath().resolve("instance.json").toFile()
-                if (configFile.exists()) addInstance(JSON.decodeFromString(configFile.readText()), true)
+                if (configFile.exists()) {
+                    try {
+                        addInstance(JSON.decodeFromString(configFile.readText()), true)
+                    } catch (_: SerializationException) {
+                        MCSRLauncher.LOGGER.error("Instance config for '{}' appears to be corrupted, skipping...", file.name)
+                        corruptedInstances.add(file)
+                    }
+                }
             }
         }
+
+        if(corruptedInstances.isNotEmpty()) {
+            var instanceListText = ""
+            for(file in corruptedInstances) {
+                val instanceName = file.name
+                instanceListText += instanceName + "\n"
+            }
+
+            val options = arrayOf("Skip corrupted instances", "Regenerate configurations", "Exit")
+            val selectedOption = JOptionPane.showOptionDialog(
+                null,
+                """
+                    |The following instances have invalid config files:
+                    |${instanceListText}
+                    |These instances will be unusable until the issue is resolved.
+                    |What would you like to do? Note that config regeneration is experimental
+                """.trimMargin(),
+                "Warning!",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.ERROR_MESSAGE,
+                null,
+                options, options[0]
+            )
+
+            when (selectedOption) {
+                0 -> {
+                    //Skip
+                }
+                1 -> {
+                    //Regen
+                    for(instanceFolder in corruptedInstances) {
+                        val guessedConfig = BasicInstance.Companion.guessInstanceConfig(instanceFolder)
+                        val configFile = instanceFolder.resolve("instance.json")
+                        configFile.writeText(JSON.encodeToString(guessedConfig))
+                        addInstance(guessedConfig, preload = true)
+                    }
+                    JOptionPane.showMessageDialog(
+                        null,
+                        "Successfully regenerated config files. If any issues occur, please report them."
+                    )
+                }
+                2 -> {
+                    //Exit
+                    exitProcess(-1)
+                }
+            }
+        }
+
         updateInstancesSort()
     }
 
