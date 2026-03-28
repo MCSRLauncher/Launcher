@@ -6,6 +6,7 @@ import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.mcsrranked.MCSRRankedPackType
 import com.redlimerl.mcsrlauncher.data.meta.IntermediaryType
 import com.redlimerl.mcsrlauncher.data.meta.LauncherTrait
+import com.redlimerl.mcsrlauncher.data.meta.MetaDependency
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MetaVersionFile
 import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMetaFile
@@ -483,7 +484,7 @@ data class BasicInstance(
     }
 
     companion object {
-        fun guessInstanceConfig(instanceFolder: File): BasicInstance {
+        fun guessInstanceConfig(worker: LauncherWorker, instanceFolder: File): BasicInstance {
             val id = instanceFolder.name
             val displayName = id
             val group = ""
@@ -499,6 +500,11 @@ data class BasicInstance(
             val instanceVersion = InstanceVersion.fromOptionsTxt(optionsTxt)
                 ?: error("options.txt does not contain a version field (is your instance pre-1.10?)")
             val minecraftVersion = instanceVersion.getMinecraftVersion()
+
+            //Ensure meta versions are available
+            MetaManager.load(worker)
+
+            val mcMetaVersion = MetaManager.getVersionMeta<MinecraftMetaFile>(MetaUniqueID.MINECRAFT, minecraftVersion)!!
 
             val options = InstanceOptions()
             //Check for toolscreen
@@ -556,14 +562,13 @@ data class BasicInstance(
                     IntermediaryType.FABRIC, //TODO: We can't just assume this in general
                     remappedMcVersion
                 )
-
             } else null
 
             val lwjglVersion: LWJGLVersionData = if (mcsrRankedType != null) {
                 LWJGLVersionData(MetaUniqueID.LWJGL3, "3.3.3")
             } else {
-                MCSRLauncher.LOGGER.warn("Assuming LWJGL3 v3.3.3, this is untested!")
-                LWJGLVersionData(MetaUniqueID.LWJGL3, "3.3.3")
+                val dep: MetaDependency = mcMetaVersion.requires.first()
+                LWJGLVersionData(dep.uid, dep.suggests!!)
             }
 
             return BasicInstance(
