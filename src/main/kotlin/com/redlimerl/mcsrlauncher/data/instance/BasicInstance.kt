@@ -6,6 +6,7 @@ import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.mcsrranked.MCSRRankedPackType
 import com.redlimerl.mcsrlauncher.data.meta.IntermediaryType
 import com.redlimerl.mcsrlauncher.data.meta.LauncherTrait
+import com.redlimerl.mcsrlauncher.data.meta.MetaDependency
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.MetaVersionFile
 import com.redlimerl.mcsrlauncher.data.meta.file.MinecraftMetaFile
@@ -53,6 +54,7 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
+import kotlin.io.readText
 
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -483,7 +485,15 @@ data class BasicInstance(
     }
 
     companion object {
-        fun guessInstanceConfig(instanceFolder: File): BasicInstance {
+        private fun minecraftVersionFromLog(logFile: File): String? {
+            val versionRegex = Regex("""\[[0-9:]+] \[Server thread/INFO]: Starting integrated minecraft server version (.+)""")
+            val matchResult = versionRegex.find(logFile.readText()) ?: return null
+            return matchResult.groups[1]!!.value
+        }
+
+        fun guessInstanceConfig(worker: LauncherWorker, instanceFolder: File): BasicInstance {
+            MCSRLauncher.LOGGER.info("Guessing instance config for {}", instanceFolder.name)
+
             val id = instanceFolder.name
             val displayName = id
             val group = ""
@@ -496,14 +506,32 @@ data class BasicInstance(
             if (!optionsTxt.exists())
                 error("Instance missing options.txt")
 
+            MCSRLauncher.LOGGER.debug("Attempting to find version in options.txt")
             val instanceVersion = InstanceVersion.fromOptionsTxt(optionsTxt)
-                ?: error("options.txt does not contain a version field (is your instance pre-1.10?)")
-            val minecraftVersion = instanceVersion.getMinecraftVersion()
+            val minecraftVersion: String = if (instanceVersion != null) {
+                instanceVersion.getMinecraftVersion()
+            } else {
+                MCSRLauncher.LOGGER.debug("options.txt does not contain version field, extracting MC version from log...")
+
+                val logFile = minecraftFolder.resolve("logs/latest.log")
+                if (!logFile.exists())
+                    error("Could not determine MC version (log file not found)!")
+
+                val version: String = minecraftVersionFromLog(logFile) ?: error("Could not determine MC version (not enough information in log)")
+                version
+            }
+            MCSRLauncher.LOGGER.debug("Guessing MC version {}", minecraftVersion)
+
+            //Ensure meta versions are available
+            MetaManager.load(worker)
+
+            val mcMetaVersion = MetaManager.getVersionMeta<MinecraftMetaFile>(MetaUniqueID.MINECRAFT, minecraftVersion)!!
 
             val options = InstanceOptions()
             //Check for toolscreen
             val toolscreenJar = instanceFolder.listFiles { _, name -> name.startsWith("Toolscreen") }.firstOrNull()
             if (toolscreenJar != null) {
+                MCSRLauncher.LOGGER.debug("Toolscreen jar found at {}, adding to options", toolscreenJar.name)
                 options.enableToolscreen = true
                 options.selectToolscreenVersion = toolscreenJar.name
             }
@@ -513,6 +541,7 @@ data class BasicInstance(
             //Check for mcsr ranked
             var mcsrRankedType: MCSRRankedPackType? = null
             if (minecraftFolder.resolve("mcsrranked").exists()) {
+                MCSRLauncher.LOGGER.debug("Found mcsrranked/ folder, checking which pack type is installed")
                 //Look for specific mods to guess type
                 //Sodium? (basic, standardsettings, rsg)
                 val hasSodium = modsFolder.list { _, name -> name.startsWith("sodium") }.isNotEmpty()
@@ -526,23 +555,29 @@ data class BasicInstance(
 
                 if (!hasSodium) {
                     //MCSR Ranked only
+                    MCSRLauncher.LOGGER.debug("No sodium found, likely mod only pack")
+
                     check(!hasStandardSettings) { "Instance ${instanceFolder.name} looks like MCSR Ranked Only, but has standard settings!" }
                     check(!hasFairPlay) { "Instance ${instanceFolder.name} looks like MCSR Ranked Only, but has fair play!" }
 
                     mcsrRankedType = MCSRRankedPackType.MOD_ONLY
                 } else if (!hasStandardSettings) {
+                    MCSRLauncher.LOGGER.debug("No standard settings found, likely basic pack")
                     check(!hasFairPlay) { "Instance ${instanceFolder.name} looks like basic pack, but has standard settings!" }
 
                     mcsrRankedType = MCSRRankedPackType.BASIC
                 } else if (!hasFairPlay) {
+                    MCSRLauncher.LOGGER.debug("No fairplay found, likely standard settings pack")
                     mcsrRankedType = MCSRRankedPackType.STANDARD_SETTINGS
                 } else {
+                    MCSRLauncher.LOGGER.debug("Likely RSG/all pack")
                     mcsrRankedType = MCSRRankedPackType.ALL
                 }
             }
 
             val fabricFolder = minecraftFolder.resolve(".fabric")
             val fabricVersion = if (fabricFolder.exists()) {
+                MCSRLauncher.LOGGER.debug("Found .fabric/ folder, checking fabric version")
                 val remappedFolder = fabricFolder.resolve("remappedJars").listFiles().first()
                 val remappedRegex = Regex("minecraft-([0-9.]+)-([0-9.]+)")
                 val match = remappedRegex.matchEntire(remappedFolder.name)
@@ -551,19 +586,29 @@ data class BasicInstance(
                 check(remappedMcVersion == minecraftVersion) { "Minecraft version from fabric doesn't match that of options.txt!" }
                 val loaderVersion = match.groups[2]!!.value
                 MCSRLauncher.LOGGER.warn("Assuming intermediary type, this is untested!")
+
+                MCSRLauncher.LOGGER.debug("Using fabric loader v{} and intermediary v{}", loaderVersion, remappedMcVersion)
+
                 FabricVersionData(
                     loaderVersion,
                     IntermediaryType.FABRIC, //TODO: We can't just assume this in general
                     remappedMcVersion
                 )
-
-            } else null
+            } else {
+                MCSRLauncher.LOGGER.debug("No .fabric/ folder found, guessing vanilla instance")
+                null
+            }
 
             val lwjglVersion: LWJGLVersionData = if (mcsrRankedType != null) {
+                MCSRLauncher.LOGGER.debug("Using LWJGL v3.3.3, since MCSR Ranked is installed")
                 LWJGLVersionData(MetaUniqueID.LWJGL3, "3.3.3")
             } else {
-                MCSRLauncher.LOGGER.warn("Assuming LWJGL3 v3.3.3, this is untested!")
-                LWJGLVersionData(MetaUniqueID.LWJGL3, "3.3.3")
+                val dep: MetaDependency = mcMetaVersion.requires.first()
+                if(dep.suggests == null)
+                    error("No suggested LWJGL version found for MC version $minecraftVersion")
+
+                MCSRLauncher.LOGGER.debug("Using LWJGL v{}", dep.suggests)
+                LWJGLVersionData(dep.uid, dep.suggests)
             }
 
             return BasicInstance(
