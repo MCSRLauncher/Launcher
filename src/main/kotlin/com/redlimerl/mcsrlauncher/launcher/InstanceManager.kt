@@ -25,7 +25,7 @@ object InstanceManager {
         migrateOldConfig()
 
         INSTANCES_PATH.toFile().mkdirs()
-        var corruptedInstances = ArrayList<File>()
+        val corruptedInstances = ArrayList<File>()
         for (file in INSTANCES_PATH.toFile().listFiles()!!) {
             if (file.exists() && file.isDirectory) {
                 val configFile = file.toPath().resolve("instance.json").toFile()
@@ -70,7 +70,7 @@ object InstanceManager {
                 1 -> {
                     //Regen
                     for(instanceFolder in corruptedInstances) {
-                        val guessedConfig = BasicInstance.Companion.guessInstanceConfig(instanceFolder)
+                        val guessedConfig = BasicInstance.guessInstanceConfig(instanceFolder)
                         val configFile = instanceFolder.resolve("instance.json")
                         configFile.writeText(JSON.encodeToString(guessedConfig))
                         addInstance(guessedConfig, preload = true)
@@ -88,6 +88,9 @@ object InstanceManager {
         }
 
         updateInstancesSort()
+        Runtime.getRuntime().addShutdownHook(Thread {
+            saveMarkedInstances()
+        })
     }
 
     fun getNewInstanceName(string: String): String {
@@ -200,7 +203,14 @@ object InstanceManager {
         instances.putAll(sorted)
     }
 
+    private fun saveMarkedInstances() {
+        instances.forEach { (_, instanceList) ->
+            instanceList.filter { it.markSave }.forEach(BasicInstance::save)
+        }
+    }
+
     fun refreshInstanceList() {
+        saveMarkedInstances()
         updateInstancesSort()
         MAIN_FRAME.loadInstanceList()
     }

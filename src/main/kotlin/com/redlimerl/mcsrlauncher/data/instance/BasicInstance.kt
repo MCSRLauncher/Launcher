@@ -89,6 +89,9 @@ data class BasicInstance(
     @Transient
     private var schedulerFuture: ScheduledFuture<*>? = null
 
+    @Transient
+    var markSave: Boolean = false
+
     fun getInstancePath(): Path {
         return InstanceManager.INSTANCES_PATH.resolve(id)
     }
@@ -129,16 +132,16 @@ data class BasicInstance(
         schedulerFuture = MCSRLauncher.SCHEDULER.scheduleWithFixedDelay({
             playTime += (System.currentTimeMillis() - lastPlaytimeUpdate) / 1000
             lastPlaytimeUpdate = System.currentTimeMillis()
-            if (this.isRunning()) this.save()
+            markSave = true
         }, 30, 30, TimeUnit.SECONDS)
     }
 
     fun onProcessExit(code: Int, exitByUser: Boolean) {
         MCSRLauncher.LOGGER.info("Exited instance: $id ($code)")
         FileUtils.deleteDirectory(this.getNativePath().toFile())
+        schedulerFuture?.cancel(false)
         InstanceManager.refreshInstanceList()
         optionDialog?.setLauncherLaunched(false)
-        schedulerFuture?.cancel(false)
 
         if (code != 0) {
             val optionDialog = openOptionDialog()
@@ -369,6 +372,7 @@ data class BasicInstance(
         val jsonData = MCSRLauncher.JSON.encodeToString(this)
         configBakJson.toFile().writeText(jsonData)
         Files.move(configBakJson, configJson, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        this.markSave = false
     }
 
     /**
@@ -492,13 +496,13 @@ data class BasicInstance(
             if (!optionsTxt.exists())
                 error("Instance missing options.txt")
 
-            val instanceVersion = InstanceVersion.Companion.fromOptionsTxt(optionsTxt)
+            val instanceVersion = InstanceVersion.fromOptionsTxt(optionsTxt)
                 ?: error("options.txt does not contain a version field (is your instance pre-1.10?)")
             val minecraftVersion = instanceVersion.getMinecraftVersion()
 
-            var options = InstanceOptions()
+            val options = InstanceOptions()
             //Check for toolscreen
-            val toolscreenJar = instanceFolder.listFiles { dir, name -> name.startsWith("Toolscreen") }.firstOrNull()
+            val toolscreenJar = instanceFolder.listFiles { _, name -> name.startsWith("Toolscreen") }.firstOrNull()
             if (toolscreenJar != null) {
                 options.enableToolscreen = true
                 options.selectToolscreenVersion = toolscreenJar.name
@@ -511,14 +515,14 @@ data class BasicInstance(
             if (minecraftFolder.resolve("mcsrranked").exists()) {
                 //Look for specific mods to guess type
                 //Sodium? (basic, standardsettings, rsg)
-                val hasSodium = modsFolder.list { dir, name -> name.startsWith("sodium") }.isNotEmpty()
+                val hasSodium = modsFolder.list { _, name -> name.startsWith("sodium") }.isNotEmpty()
 
                 //Standard settings? (standardsettings, rsg)
                 val hasStandardSettings =
-                    modsFolder.list { dir, name -> name.startsWith("standardsettings") }.isNotEmpty()
+                    modsFolder.list { _, name -> name.startsWith("standardsettings") }.isNotEmpty()
 
                 //Fair play? (rsg)
-                val hasFairPlay = modsFolder.list { dir, name -> name.startsWith("mcsrfairplay") }.isNotEmpty()
+                val hasFairPlay = modsFolder.list { _, name -> name.startsWith("mcsrfairplay") }.isNotEmpty()
 
                 if (!hasSodium) {
                     //MCSR Ranked only
