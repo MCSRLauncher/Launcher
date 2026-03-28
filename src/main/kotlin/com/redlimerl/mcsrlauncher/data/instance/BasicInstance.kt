@@ -54,6 +54,7 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
+import kotlin.io.readText
 
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -484,6 +485,12 @@ data class BasicInstance(
     }
 
     companion object {
+        private fun minecraftVersionFromLog(logFile: File): String? {
+            val versionRegex = Regex("""\[[0-9:]+] \[Server thread/INFO]: Starting integrated minecraft server version (.+)""")
+            val matchResult = versionRegex.find(logFile.readText()) ?: return null
+            return matchResult.groups[1]!!.value
+        }
+
         fun guessInstanceConfig(worker: LauncherWorker, instanceFolder: File): BasicInstance {
             val id = instanceFolder.name
             val displayName = id
@@ -498,8 +505,19 @@ data class BasicInstance(
                 error("Instance missing options.txt")
 
             val instanceVersion = InstanceVersion.fromOptionsTxt(optionsTxt)
-                ?: error("options.txt does not contain a version field (is your instance pre-1.10?)")
-            val minecraftVersion = instanceVersion.getMinecraftVersion()
+            val minecraftVersion: String = if (instanceVersion != null) {
+                instanceVersion.getMinecraftVersion()
+            } else {
+                MCSRLauncher.LOGGER.debug("options.txt does not contain version field, extracting MC version from log...")
+
+                val logFile = minecraftFolder.resolve("logs/latest.log")
+                if (!logFile.exists())
+                    error("Could not determine MC version (log file not found)!")
+
+                val version: String = minecraftVersionFromLog(logFile) ?: error("Could not determine MC version (not enough information in log)")
+                version
+            }
+            MCSRLauncher.LOGGER.debug("Guessing MC version {}", minecraftVersion)
 
             //Ensure meta versions are available
             MetaManager.load(worker)
