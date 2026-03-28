@@ -192,7 +192,7 @@ data class BasicInstance(
             val toolscreenFile = getToolscreenFile()
             if (toolscreenMeta != null && toolscreenFile != null && toolscreenMeta.tool.shouldApply()) {
                 for (version in toolscreenMeta.tool.versions) {
-                    if (version.name == options.selectToolscreenVersion || options.autoToolscreenUpdates) {
+                    if (version.name == options.selectToolscreenVersion || (options.autoToolscreenUpdates && !version.prerelease)) {
                         if (!toolscreenFile.exists() || !AssetUtils.compareHash(toolscreenFile, version.checksum.hash, AssetUtils.getHashFunction(version.checksum.type))) {
                             worker.setState("Downloading ${version.name}...")
                             options.selectToolscreenVersion = version.name

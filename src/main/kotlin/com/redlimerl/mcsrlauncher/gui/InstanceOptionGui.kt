@@ -419,7 +419,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
 
                         var targetVersion: SpeedrunToolVersion? = null
                         for (version in toolscreenMeta.tool.versions) {
-                            if (version.version == toolscreenVersionCombo.selectedItem || instance.options.autoToolscreenUpdates) {
+                            if (version.version == toolscreenVersionCombo.selectedItem?.toString()?.split(" (")?.first() || (instance.options.autoToolscreenUpdates && !version.prerelease)) {
                                 instance.options.selectToolscreenVersion = version.name
                                 targetVersion = version
                                 break
@@ -445,7 +445,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
 
                     var selectedIndex = 0
                     toolscreenMeta.tool.versions.forEachIndexed { index, version ->
-                        toolscreenVersionCombo.addItem(version.version)
+                        toolscreenVersionCombo.addItem(version.version + (if (version.prerelease) (" (" + I18n.translate("version.prerelease") + ")") else ""))
                         if (!instance.options.autoToolscreenUpdates && instance.options.selectToolscreenVersion == version.name) selectedIndex = index
                     }
                     toolscreenVersionCombo.isEnabled = !instance.options.autoToolscreenUpdates

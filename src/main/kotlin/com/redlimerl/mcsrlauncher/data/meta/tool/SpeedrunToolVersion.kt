@@ -14,6 +14,7 @@ data class SpeedrunToolVersion(
     val checksum: FileChecksum,
     val name: String,
     val version: String,
+    val prerelease: Boolean = false,
     @Serializable(with = ISO8601Serializer::class) val releaseTime: Date,
     val url: String
 ) {
