@@ -70,7 +70,11 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
     }
 
     fun openTab(index: Int) {
-        this.optionTab.selectedIndex = index
+        if (index < 0) {
+            this.optionTab.selectedIndex = this.optionTab.tabCount + index
+        } else {
+            this.optionTab.selectedIndex = index
+        }
     }
 
     private fun getUpdatedTitle(): String {
@@ -115,7 +119,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
     private fun initVersionTab() {
         versionsTable.tableHeader.reorderingAllowed = false
         versionsTable.selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
-        versionsTable.setDefaultEditor(Object::class.java, null)
+        versionsTable.setDefaultEditor(Any::class.java, null)
         versionsTable.selectionModel.addListSelectionListener {
             if (!it.valueIsAdjusting && versionsTable.selectedRow == -1 && versionsTable.rowCount > 0)
                 versionsTable.setRowSelectionInterval(it.lastIndex, it.lastIndex)
@@ -145,7 +149,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
 
         modsTable.tableHeader.reorderingAllowed = false
         modsTable.selectionModel.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
-        modsTable.setDefaultEditor(Object::class.java, null)
+        modsTable.setDefaultEditor(Any::class.java, null)
 
         val modTableModel = object : AbstractTableModel() {
             override fun getRowCount(): Int = mods.size

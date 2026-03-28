@@ -145,7 +145,7 @@ data class BasicInstance(
 
         if (code != 0) {
             val optionDialog = openOptionDialog()
-            optionDialog.openTab(4)
+            optionDialog.openTab(-1)
             if (!exitByUser) {
                 val result = JOptionPane.showConfirmDialog(optionDialog, I18n.translate("message.upload_crash_log"), I18n.translate("text.warning"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
                 if (result == JOptionPane.YES_OPTION) {
