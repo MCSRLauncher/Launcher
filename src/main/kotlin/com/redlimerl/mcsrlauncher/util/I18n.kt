@@ -20,6 +20,7 @@ object I18n {
     }
 
     fun translate(key: String, vararg args: Any): String {
+        if (!key.matches(Regex("^\\w+(\\.\\w+){1,2}$"))) return key
         return String.format(if (resource.containsKey(key)) resource.getString(key) else key, *args)
     }
 
