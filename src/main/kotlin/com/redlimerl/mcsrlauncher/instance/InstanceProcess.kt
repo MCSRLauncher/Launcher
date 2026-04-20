@@ -7,12 +7,12 @@ import com.redlimerl.mcsrlauncher.data.meta.LauncherTrait
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
 import com.redlimerl.mcsrlauncher.data.meta.file.*
 import com.redlimerl.mcsrlauncher.exception.IllegalRequestResponseException
-import com.redlimerl.mcsrlauncher.exception.InvalidAccessTokenException
 import com.redlimerl.mcsrlauncher.gui.component.LogViewerPanel
 import com.redlimerl.mcsrlauncher.launcher.AccountManager
 import com.redlimerl.mcsrlauncher.launcher.GameAssetManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.AssetUtils
+import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -25,6 +25,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
 import javax.swing.Timer
 import kotlin.io.path.absolutePathString
@@ -58,10 +59,14 @@ class InstanceProcess(val instance: BasicInstance) {
 
         MCSRLauncher.LOGGER.info("Loading Authentication: ${instance.id}")
         val activeAccount = AccountManager.getActiveAccount() ?: throw IllegalStateException("No account found, make sure you have added your account.")
+        var accessToken = activeAccount.profile.accessToken
         try {
             if (activeAccount.profile.checkTokenValidForLaunch(worker, activeAccount)) AccountManager.save()
         } catch (e: IllegalRequestResponseException) {
-            throw InvalidAccessTokenException("Authentication Failed. Try removing and adding your Minecraft account again.")
+            MCSRLauncher.LOGGER.debug("Account invalidate", e)
+            val confirm = JOptionPane.showConfirmDialog(worker.dialog, I18n.translate("message.ask_offline_mode"), I18n.translate("text.error"), JOptionPane.YES_NO_OPTION)
+            if (confirm != JOptionPane.YES_OPTION) return
+            accessToken = null
         }
 
         MCSRLauncher.LOGGER.info("Launching instance: ${instance.id}")
@@ -112,7 +117,6 @@ class InstanceProcess(val instance: BasicInstance) {
         val mainJar = minecraftMetaFile.mainJar.getPath()
         mainClass = minecraftMetaFile.mainClass
 
-        val accessToken = activeAccount.profile.accessToken
         val gameArgs = minecraftMetaFile.minecraftArguments
             .split(" ").map {
                 it.replace("\${auth_player_name}", activeAccount.profile.nickname)
@@ -122,8 +126,8 @@ class InstanceProcess(val instance: BasicInstance) {
                     .replace("\${game_assets}", instance.getGamePath().resolve("resources").absolutePathString())
                     .replace("\${assets_index_name}", minecraftMetaFile.assetIndex.id)
                     .replace("\${auth_uuid}", activeAccount.profile.uuid.toString())
-                    .replace("\${auth_access_token}", accessToken ?: "")
-                    .replace("\${auth_session}", accessToken ?: "")
+                    .replace("\${auth_access_token}", accessToken ?: "0")
+                    .replace("\${auth_session}", accessToken ?: "0")
                     .replace("\${user_type}", "msa")
                     .replace("\${version_type}", minecraftMetaFile.type.toTypeId())
                     .replace("\${user_properties}", "{}")
