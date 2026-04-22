@@ -26,6 +26,7 @@ import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.network.FileDownloader
 import com.redlimerl.mcsrlauncher.util.*
+import io.github.z4kn4fein.semver.Version
 import io.github.z4kn4fein.semver.toVersionOrNull
 import kotlinx.coroutines.*
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -191,7 +192,8 @@ data class BasicInstance(
             val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen", worker)
             val toolscreenFile = getToolscreenFile()
             if (toolscreenMeta != null && toolscreenFile != null && toolscreenMeta.tool.shouldApply()) {
-                for (version in toolscreenMeta.tool.versions) {
+                for (version in toolscreenMeta.tool.versions.filter { it.version.startsWith("v") }
+                    .sortedByDescending { Version.parse(it.version, false) }) {
                     if (version.name == options.selectToolscreenVersion || (options.autoToolscreenUpdates && !version.prerelease)) {
                         if (!toolscreenFile.exists() || !AssetUtils.compareHash(toolscreenFile, version.checksum.hash, AssetUtils.getHashFunction(version.checksum.type))) {
                             worker.setState("Downloading ${version.name}...")

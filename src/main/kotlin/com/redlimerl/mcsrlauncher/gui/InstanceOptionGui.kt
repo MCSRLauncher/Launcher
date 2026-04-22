@@ -15,6 +15,7 @@ import com.redlimerl.mcsrlauncher.instance.mod.ModData
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.*
+import io.github.z4kn4fein.semver.Version
 import org.apache.commons.io.FileUtils
 import java.awt.*
 import java.awt.datatransfer.DataFlavor
@@ -418,7 +419,8 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
                         }
 
                         var targetVersion: SpeedrunToolVersion? = null
-                        for (version in toolscreenMeta.tool.versions) {
+                        for (version in toolscreenMeta.tool.versions.filter { it.version.startsWith("v") }
+                            .sortedByDescending { Version.parse(it.version, false) }) {
                             if (version.version == toolscreenVersionCombo.selectedItem?.toString()?.split(" (")?.first() || (instance.options.autoToolscreenUpdates && !version.prerelease)) {
                                 instance.options.selectToolscreenVersion = version.name
                                 targetVersion = version

@@ -14,6 +14,7 @@ import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.AssetUtils
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
+import io.github.z4kn4fein.semver.Version
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import org.apache.commons.io.FileUtils
@@ -238,7 +239,8 @@ class InstanceProcess(val instance: BasicInstance) {
             val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen", worker)
             val toolscreenFile = instance.getToolscreenFile()
             if (toolscreenMeta != null && toolscreenFile != null && toolscreenMeta.tool.shouldApply()) {
-                for (version in toolscreenMeta.tool.versions) {
+                for (version in toolscreenMeta.tool.versions.filter { it.version.startsWith("v") }
+                    .sortedByDescending { Version.parse(it.version, false) }) {
                     if (version.name == instance.options.selectToolscreenVersion) {
                         if (!toolscreenFile.exists() || !AssetUtils.compareHash(toolscreenFile, version.checksum.hash, AssetUtils.getHashFunction(version.checksum.type))) {
                             addLog("WARNING! INCORRECT HASH TOOLSCREEN HAS DETECTED! SKIPPED TO RUN\n\n")
