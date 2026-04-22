@@ -72,7 +72,7 @@ public class SpeedrunModsBrowseDialog extends JDialog {
         categoryComboBox = new JComboBox();
         panel3.add(categoryComboBox, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         selectAllButton = new JButton();
-        selectAllButton.setText("text.select.all_recommends");
+        selectAllButton.setText("text.select.all_recommended");
         panel3.add(selectAllButton, new GridConstraints(0, 3, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         deselectButton = new JButton();
         deselectButton.setText("text.deselect.all");
