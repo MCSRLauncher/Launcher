@@ -23,7 +23,7 @@ class MainMenuGui : MainForm() {
     private var optionDialog: LauncherOptionDialog? = null
 
     init {
-        title = "${MCSRLauncher.APP_NAME} " + if (MCSRLauncher.IS_DEV_VERSION) "Developement Ver." else ("v" + MCSRLauncher.APP_VERSION)
+        title = "${MCSRLauncher.APP_NAME} " + if (MCSRLauncher.IS_DEV_VERSION) "Development Ver." else ("v" + MCSRLauncher.APP_VERSION)
         defaultCloseOperation = EXIT_ON_CLOSE
         minimumSize = Dimension(900, 600)
         setLocationRelativeTo(null)
