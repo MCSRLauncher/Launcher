@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Main-Class: com.redlimerl.mcsrlauncher.MCSRLauncher
+Implementation-Version: 0.8.0-beta
+Multi-Release: true
+

@@ -66,20 +66,34 @@ class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : Lau
         }
 
         this.checkUpdateButton.addActionListener {
-            object : LauncherWorker(this@LauncherOptionGui, I18n.translate("text.check_update"), I18n.translate("message.checking_updates")) {
-                override fun work(dialog: JDialog) {
-                    val latestVersion = UpdaterUtils.checkLatestVersion(this)
-                    dialog.dispose()
-                    if (latestVersion != null) {
-                        val updateConfirm = JOptionPane.showConfirmDialog(this@LauncherOptionGui, I18n.translate("message.new_update_found").plus("\nCurrent: ${MCSRLauncher.APP_VERSION}\nNew: $latestVersion"), I18n.translate("text.check_update"), JOptionPane.YES_NO_OPTION)
-                        if (updateConfirm == JOptionPane.YES_OPTION) {
-                            UpdaterUtils.launchUpdater()
+            if (MCSRLauncher.isInstalledFromPackage()) {
+                object : LauncherWorker(this@LauncherOptionGui, I18n.translate("text.check_update"), I18n.translate("message.checking_updates")) {
+                    override fun work(dialog: JDialog) {
+                        val latestVersion = UpdaterUtils.checkLatestVersion(this)
+                        dialog.dispose()
+                        if (latestVersion != null) {
+                            JOptionPane.showMessageDialog(this@LauncherOptionGui, "A new version is available: $latestVersion\nCurrent: ${MCSRLauncher.APP_VERSION}\n\nPlease update using your package manager.", I18n.translate("text.check_update"), JOptionPane.INFORMATION_MESSAGE)
+                        } else {
+                            JOptionPane.showMessageDialog(this@LauncherOptionGui, I18n.translate("message.latest_version"))
                         }
-                    } else {
-                        JOptionPane.showMessageDialog(this@LauncherOptionGui, I18n.translate("message.latest_version"))
                     }
-                }
-            }.showDialog().start()
+                }.showDialog().start()
+            } else {
+                object : LauncherWorker(this@LauncherOptionGui, I18n.translate("text.check_update"), I18n.translate("message.checking_updates")) {
+                    override fun work(dialog: JDialog) {
+                        val latestVersion = UpdaterUtils.checkLatestVersion(this)
+                        dialog.dispose()
+                        if (latestVersion != null) {
+                            val updateConfirm = JOptionPane.showConfirmDialog(this@LauncherOptionGui, I18n.translate("message.new_update_found").plus("\nCurrent: ${MCSRLauncher.APP_VERSION}\nNew: $latestVersion"), I18n.translate("text.check_update"), JOptionPane.YES_NO_OPTION)
+                            if (updateConfirm == JOptionPane.YES_OPTION) {
+                                UpdaterUtils.launchUpdater()
+                            }
+                        } else {
+                            JOptionPane.showMessageDialog(this@LauncherOptionGui, I18n.translate("message.latest_version"))
+                        }
+                    }
+                }.showDialog().start()
+            }
         }
 
         SwingUtils.fasterScroll(this.tabLauncherScrollPane)

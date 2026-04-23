@@ -40,7 +40,50 @@ object MCSRLauncher {
     const val APP_NAME: String = "MCSR Launcher"
     lateinit var LOG_APPENDER: LauncherLogAppender private set
     lateinit var LOGGER: Logger private set
-    val BASE_PATH: Path = Paths.get("").resolve("launcher")
+    val BASE_PATH: Path = getDataPath()
+
+    private fun getDataPath(): Path {
+        // Allow override via environment variable
+        val envPath = System.getenv("MCSR_LAUNCHER_DATA_DIR")
+        if (!envPath.isNullOrBlank()) {
+            return Paths.get(envPath).also { it.toFile().mkdirs() }
+        }
+
+        // Only use XDG/system paths if installed via package manager, so .jar stays portable
+        if (isInstalledFromPackage()) {
+            return when (com.redlimerl.mcsrlauncher.data.device.DeviceOSType.CURRENT_OS) {
+                com.redlimerl.mcsrlauncher.data.device.DeviceOSType.LINUX -> {
+                    val xdgDataHome = System.getenv("XDG_DATA_HOME")
+                    val baseDir = if (!xdgDataHome.isNullOrBlank()) {
+                        Paths.get(xdgDataHome)
+                    } else {
+                        Paths.get(System.getProperty("user.home"), ".local", "share")
+                    }
+                    baseDir.resolve("MCSRLauncher").also { it.toFile().mkdirs() }
+                }
+                com.redlimerl.mcsrlauncher.data.device.DeviceOSType.MACOS -> {
+                    Paths.get(System.getProperty("user.home"), "Library", "Application Support", "MCSRLauncher")
+                        .also { it.toFile().mkdirs() }
+                }
+                else -> Paths.get("").resolve("launcher")
+            }
+        }
+
+        // Standalone jar: use launcher/ in current directory
+        return Paths.get("").resolve("launcher")
+    }
+
+    fun isInstalledFromPackage(): Boolean {
+        val jarPath = try {
+            Paths.get(javaClass.protectionDomain.codeSource.location.toURI()).toString()
+        } catch (_: Exception) {
+            return false
+        }
+        return jarPath.startsWith("/usr/share/") ||
+                jarPath.startsWith("/nix/store/") ||
+                jarPath.startsWith("/opt/") ||
+                jarPath.startsWith("/Applications/")
+    }
     val IS_DEV_VERSION = javaClass.`package`.implementationVersion == null
     val APP_VERSION = javaClass.`package`.implementationVersion ?: "dev"
     val GAME_PROCESSES = arrayListOf<InstanceProcess>()
