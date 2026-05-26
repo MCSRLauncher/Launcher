@@ -427,7 +427,8 @@ class InstanceProcess(val instance: BasicInstance) {
     @OptIn(DelicateCoroutinesApi::class)
     private fun onExit(code: Int) {
         MCSRLauncher.GAME_PROCESSES.remove(this)
-        this.instance.onProcessExit(code, exitByUser)
+        val processLog = synchronized(logArchive) { logArchive.joinToString("\n") }
+        this.instance.onProcessExit(code, exitByUser, processLog)
 
         val postExitCommand = instance.options.getSharedWorkaroundValue { it.postExitCommand }
         if (postExitCommand.isNotBlank()) {
