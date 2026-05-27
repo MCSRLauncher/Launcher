@@ -1,6 +1,7 @@
 package com.redlimerl.mcsrlauncher.data.meta.program
 
 import com.redlimerl.mcsrlauncher.data.asset.rule.AssetRule
+import com.redlimerl.mcsrlauncher.data.asset.rule.evaluate
 import com.redlimerl.mcsrlauncher.util.OSUtils
 import kotlinx.serialization.Serializable
 import java.net.URI
@@ -20,11 +21,6 @@ data class SpeedrunProgramMeta(
         OSUtils.openURI(URI.create(this.downloadPage))
     }
 
-    fun shouldApply(): Boolean {
-        for (rule in this.rules) {
-            if (!rule.shouldAllow()) return false
-        }
-        return true
-    }
+    fun shouldApply(): Boolean = rules.evaluate()
 
 }
