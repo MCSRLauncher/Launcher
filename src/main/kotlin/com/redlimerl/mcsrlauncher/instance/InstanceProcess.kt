@@ -357,9 +357,7 @@ class InstanceProcess(val instance: BasicInstance) {
         if (process == null) {
             preLaunchLogs += logString
         } else {
-            GlobalScope.launch {
-                logChannel.send(logString)
-            }
+            logChannel.trySend(logString)
             synchronized(logArchive) {
                 logArchive.add(logString)
                 if (logArchive.size > MAX_LOG_ARCHIVED_COUNT) {
