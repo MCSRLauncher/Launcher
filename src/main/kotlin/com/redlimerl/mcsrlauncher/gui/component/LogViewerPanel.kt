@@ -244,7 +244,7 @@ class LogViewerPanel(private val basePath: Path) : AbstractLogViewerPanel() {
                 string.contains("DEBUG", true) -> DEBUG_STYLE
                 else -> DEFAULT_STYLE
             }
-            doc.insertString(doc.length, string, styleToApply)
+            doc.insertString(doc.length, string + "\n", styleToApply)
         }
     }
 
