@@ -94,6 +94,12 @@ class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : Lau
             MCSRLauncher.options.concurrentDownloads = this.concurrentDownloadsSpinner.value as Int
             MCSRLauncher.options.save()
         }
+
+        this.autoUpdateCheckBox.isSelected = MCSRLauncher.options.autoUpdateCheck
+        this.autoUpdateCheckBox.addActionListener {
+            MCSRLauncher.options.autoUpdateCheck = !MCSRLauncher.options.autoUpdateCheck
+            MCSRLauncher.options.save()
+        }
     }
 
     private fun initJavaTab() {

@@ -16,6 +16,7 @@ data class LauncherOptions(
     var metaUrl: String = "https://mcsrlauncher.github.io/meta/",
     var concurrentDownloads: Int = 6,
     val customJavaPaths: LinkedHashSet<String> = linkedSetOf(),
+    var autoUpdateCheck: Boolean = true,
     override var javaPath: String = Paths.get(System.getProperty("java.home")).resolve("bin").resolve(JavaUtils.javaExecutableName()).absolutePathString(),
     override var jvmArguments: String = "",
     override var minMemory: Int = 1024,
