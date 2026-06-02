@@ -60,9 +60,10 @@ class InstanceProcess(val instance: BasicInstance) {
 
         MCSRLauncher.LOGGER.info("Loading Authentication: ${instance.id}")
         val activeAccount = AccountManager.getActiveAccount() ?: throw IllegalStateException("No account found, make sure you have added your account.")
-        var accessToken = activeAccount.profile.accessToken
+        var accessToken: String?
         try {
             if (activeAccount.profile.checkTokenValidForLaunch(worker, activeAccount)) AccountManager.save()
+            accessToken = activeAccount.profile.accessToken
         } catch (e: IllegalRequestResponseException) {
             MCSRLauncher.LOGGER.debug("Account invalidate", e)
             val confirm = JOptionPane.showConfirmDialog(worker.dialog, I18n.translate("message.ask_offline_mode"), I18n.translate("text.error"), JOptionPane.YES_NO_OPTION)
