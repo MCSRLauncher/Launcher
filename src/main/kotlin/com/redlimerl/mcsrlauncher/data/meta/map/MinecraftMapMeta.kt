@@ -55,7 +55,7 @@ data class MinecraftMapMeta(
             zip.entries().asSequence().map { it.name }.firstOrNull { it.endsWith("level.dat") } ?: throw IllegalStateException("level.dat not found in ZIP")
         }
 
-        val worldDirPrefix = levelDatPath.substringBeforeLast("/")
+        val worldDirPrefix = levelDatPath.substring(0, levelDatPath.length - 9)
 
         ZipInputStream(tempFile.inputStream()).use { zip ->
             var entry = zip.nextEntry
@@ -64,14 +64,14 @@ data class MinecraftMapMeta(
                     val shouldExtract = if (worldDirPrefix.isEmpty()) {
                         true
                     } else {
-                        entry.name.startsWith("$worldDirPrefix/")
+                        entry.name.startsWith(worldDirPrefix)
                     }
 
                     if (shouldExtract) {
                         val relativeName = if (worldDirPrefix.isEmpty()) {
                             entry.name
                         } else {
-                            entry.name.removePrefix("$worldDirPrefix/")
+                            entry.name.removePrefix(worldDirPrefix)
                         }
                         val outFile = File(targetDir, relativeName)
                         worker.setSubText(relativeName)
