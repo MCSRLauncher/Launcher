@@ -31,8 +31,8 @@ data class InstanceOptions(
 
     override var minMemory: Int = 1024,
     override var maxMemory: Int = if (OSUtils.getTotalMemoryGB() > 15) 4096 else 2048,
-    override var javaPath: String = "",
-    override var jvmArguments: String = "",
+    override var javaPath: String = MCSRLauncher.options.javaPath,
+    override var jvmArguments: String = MCSRLauncher.options.jvmArguments,
     override var maximumResolution: Boolean = false,
     override var resolutionWidth: Int = 854,
     override var resolutionHeight: Int = 480
