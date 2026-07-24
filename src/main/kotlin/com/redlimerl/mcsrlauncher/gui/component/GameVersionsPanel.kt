@@ -111,7 +111,7 @@ class GameVersionsPanel(private val parentWindow: JDialog, val instance: BasicIn
             val minecraftVersion = this.getMinecraftVersion()
             val lwjglRequire = minecraftVersion.requires.first()
             val availableLWJGL = MetaManager.getVersions(lwjglRequire.uid)
-                .filter { it.version.toVersion(false) >= lwjglRequire.suggests?.toVersion(false )!! }
+                .filter { it.version.toVersion(false) == lwjglRequire.suggests?.toVersion(false )!! }
                 .sortedByDescending { it.version.toVersion(false) }
                 .first()
             return LWJGLVersionData(lwjglRequire.uid, availableLWJGL.version)
