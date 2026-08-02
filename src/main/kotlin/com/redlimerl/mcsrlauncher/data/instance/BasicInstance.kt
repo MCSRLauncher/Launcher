@@ -236,6 +236,17 @@ data class BasicInstance(
                     clearWorlds(this)
                 }
 
+                if (options.autoNinjaBrainBotLaunch) {
+                    this.setState(I18n.translate("text.launching_ninjabrainbot") + "...")
+                    val nbb = File(MCSRLauncher.options.ninjaBrainBotPath)
+                    if (nbb.exists() && nbb.isFile && nbb.extension == "jar") {
+                        ProcessBuilder(MCSRLauncher.options.javaPath, "-jar", MCSRLauncher.options.ninjaBrainBotPath).start()
+                    }
+                    else{
+                        // failure feedback
+                    }
+                }
+
                 this.setState(I18n.translate("instance.launching") + "...")
                 launchInstance(this)
             }
