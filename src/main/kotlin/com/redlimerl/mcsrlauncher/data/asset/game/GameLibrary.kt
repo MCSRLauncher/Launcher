@@ -3,6 +3,7 @@ package com.redlimerl.mcsrlauncher.data.asset.game
 import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.data.asset.BasicAssetObject
 import com.redlimerl.mcsrlauncher.data.asset.rule.AssetRule
+import com.redlimerl.mcsrlauncher.data.asset.rule.evaluate
 import com.redlimerl.mcsrlauncher.data.device.DeviceArchitectureType
 import com.redlimerl.mcsrlauncher.data.device.RuntimeOSType
 import com.redlimerl.mcsrlauncher.instance.InstanceLibrary
@@ -65,12 +66,7 @@ data class GameLibrary(
         return list
     }
 
-    fun shouldApply(): Boolean {
-        for (rule in this.rules) {
-            if (!rule.shouldAllow()) return false
-        }
-        return true
-    }
+    fun shouldApply(): Boolean = rules.evaluate()
 
     fun toInstanceLibrary(): InstanceLibrary {
         return InstanceLibrary(
