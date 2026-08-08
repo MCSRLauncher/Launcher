@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	install -Dm644 MCSRLauncher.jar $(DESTDIR)/usr/share/java/mcsrlauncher/MCSRLauncher.jar
+	install -Dm644 mcsrlauncher.desktop $(DESTDIR)/usr/share/applications/mcsrlauncher.desktop
+	install -Dm644 mcsrlauncher.png $(DESTDIR)/usr/share/icons/hicolor/128x128/apps/mcsrlauncher.png
+	install -Dm755 mcsrlauncher.sh $(DESTDIR)/usr/bin/mcsrlauncher

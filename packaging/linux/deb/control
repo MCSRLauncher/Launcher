@@ -1,0 +1,13 @@
+Source: mcsrlauncher
+Section: games
+Priority: optional
+Maintainer: flammablebunny <theflammablebunny@gmail.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.0
+Homepage: https://github.com/MCSRLauncher/Launcher
+
+Package: mcsrlauncher
+Architecture: all
+Depends: openjdk-21-jdk, ${misc:Depends}
+Description: MCSR Launcher
+ Minecraft Launcher written in Kotlin. Made for MCSR Community and MCSR Ranked
