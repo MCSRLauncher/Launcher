@@ -4,6 +4,7 @@ import com.redlimerl.mcsrlauncher.MCSRLauncher
 import com.redlimerl.mcsrlauncher.data.launcher.LauncherLanguage
 import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.LogViewerPanel
+import com.redlimerl.mcsrlauncher.gui.component.PaceManSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
@@ -34,6 +35,7 @@ class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : Lau
         this.initInterfaceTab()
         this.initWorkaroundsTab()
         this.initLogTab()
+        this.initPacemanTab()
 
         I18n.translateGui(this)
         isVisible = true
@@ -120,6 +122,11 @@ class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : Lau
         }
         this.tabWorkaroundScrollPane.setViewportView(workaroundPanel)
         SwingUtils.fasterScroll(this.tabWorkaroundScrollPane)
+    }
+
+    private fun initPacemanTab() {
+        this.tabPaceManScrollPane.setViewportView(PaceManSettingsPanel(this))
+        SwingUtils.fasterScroll(this.tabPaceManScrollPane)
     }
 
     private fun initLogTab() {

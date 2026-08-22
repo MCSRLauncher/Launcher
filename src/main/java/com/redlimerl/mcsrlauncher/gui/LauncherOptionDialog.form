@@ -261,6 +261,16 @@
                   </grid>
                 </children>
               </grid>
+              <scrollpane id="a1b2c" binding="tabPaceManScrollPane">
+                <constraints>
+                  <tabbedpane title="text.paceman"/>
+                </constraints>
+                <properties>
+                  <horizontalScrollBarPolicy value="31"/>
+                </properties>
+                <border type="empty"/>
+                <children/>
+              </scrollpane>
             </children>
           </tabbedpane>
         </children>

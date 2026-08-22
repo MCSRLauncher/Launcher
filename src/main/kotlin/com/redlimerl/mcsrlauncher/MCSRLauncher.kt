@@ -73,6 +73,14 @@ object MCSRLauncher {
 
         LOGGER.info("Starting launcher - Version: $APP_VERSION, Java: ${System.getProperty("java.version")}")
 
+        Runtime.getRuntime().addShutdownHook(Thread {
+            try {
+                PaceManManager.shutdown()
+            } catch (ignored: Exception) {
+                //Ignore for now
+            }
+        })
+
         var shouldCheckLock = true
         if (!LOCK_FILE.exists()) {
             try {
@@ -180,6 +188,17 @@ object MCSRLauncher {
                         dialog.dispose()
                         JOptionPane.showMessageDialog(null, I18n.translate("message.meta_load_fail"), I18n.translate("text.error"), JOptionPane.OK_OPTION)
                         return
+                    }
+                }
+
+                if (PaceManManager.isDownloaded()) {
+                    thread {
+                        try {
+                            PaceManManager.start()
+                        } catch (e: Exception) {
+                            LOGGER.error("Failed to start PaceMan Tracker", e)
+                        }
+                        PaceManManager.refreshUpdateStatus()
                     }
                 }
 
