@@ -1,15 +1,18 @@
 package com.redlimerl.mcsrlauncher.util
 
 import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
-import com.redlimerl.mcsrlauncher.data.instance.FabricVersionData
-import com.redlimerl.mcsrlauncher.data.instance.LWJGLVersionData
+import com.redlimerl.mcsrlauncher.data.instance.*
 import com.redlimerl.mcsrlauncher.data.meta.IntermediaryType
 import com.redlimerl.mcsrlauncher.data.meta.MetaUniqueID
+import com.redlimerl.mcsrlauncher.data.meta.MetaVersion
+import com.redlimerl.mcsrlauncher.launcher.MetaManager
+import io.github.z4kn4fein.semver.toVersion
 import kotlinx.serialization.json.*
-import java.io.File
-import java.io.FileReader
+import java.io.*
 import java.util.Properties
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 
 object MigrationUtils {
 
@@ -126,5 +129,137 @@ object MigrationUtils {
 
             return getLWJGL(json)
         }
+    }
+
+    fun exportInstance(root: File, savePath: File, selectedFiles: List<File>, instance: BasicInstance, type: Int) {
+        ZipOutputStream(BufferedOutputStream(savePath.outputStream())).use { out ->
+            val instanceId = instance.id
+
+            if (type == 1) {
+                out.putNextEntry(ZipEntry("$instanceId/instance.cfg"))
+                out.write(constructInstanceCfg(instance).toByteArray())
+                out.closeEntry()
+
+                out.putNextEntry(ZipEntry("$instanceId/mmc-pack.json"))
+                out.write(constructMMCPack(instance).toByteArray())
+                out.closeEntry()
+            }
+
+            selectedFiles.forEach { entry ->
+                val entryPath = entry.toPath()
+                val rootPath = root.toPath()
+
+                if (entryPath == rootPath.parent) return@forEach
+
+                val relative = if (entryPath.startsWith(rootPath)) {
+                    "$instanceId/.minecraft/" + rootPath.relativize(entryPath).toString().replace(File.separatorChar, '/')
+                } else { "$instanceId/${entry.name}" }
+
+                if (entry.isDirectory) {
+                    out.putNextEntry(ZipEntry("$relative/"))
+                    out.closeEntry()
+                } else {
+                    FileInputStream(entry).use { fi ->
+                        val zipEntry = ZipEntry(relative)
+                        out.putNextEntry(zipEntry)
+                        fi.copyTo(out)
+                        out.closeEntry()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun constructInstanceCfg(instance: BasicInstance) : String {
+        val options = instance.options
+        return buildString {
+            appendLine("InstanceType=OneSix")
+            appendLine("JavaPath=${options.javaPath.replace(File.separatorChar, '/')}")
+            appendLine("JvmArgs=${options.jvmArguments}")
+            appendLine("MaxMemAlloc=${options.maxMemory}")
+            appendLine("MinMemAlloc=${options.minMemory}")
+            appendLine("MinecraftWinHeight=${options.resolutionHeight}")
+            appendLine("MinecraftWinWidth=${options.resolutionWidth}")
+            appendLine("OverrideJavaArgs=${!options.useLauncherJavaOption}")
+            appendLine("OverrideJavaLocation=${!options.useLauncherJavaOption}")
+            appendLine("OverrideMemory=${!options.useLauncherJavaOption}")
+            appendLine("OverrideWindow=${!options.useLauncherResolutionOption}")
+
+            appendLine("name=${instance.displayName}")
+            appendLine("lastLaunchTime=${instance.lastPlaytimeUpdate}")
+            appendLine("totalTimePlayed=${instance.playTime}")
+        }
+    }
+
+    private fun constructMMCPack(instance: BasicInstance) : String {
+        val json = Json {
+            prettyPrint = true
+            encodeDefaults = true
+            explicitNulls = false
+        }
+
+        val minecraftId = MetaUniqueID.MINECRAFT.value
+
+        val components = mutableListOf(
+            Component(
+                cachedName = "LWJGL 3",
+                cachedVersion = instance.lwjglVersion.version,
+                cachedVolatile = true,
+                dependencyOnly = true,
+                uid = MetaUniqueID.LWJGL3.value,
+                version = instance.lwjglVersion.version
+            ),
+            Component(
+                cachedName = "Minecraft",
+                cachedRequires = listOf(CachedRequirement(
+                    suggests = getSuggestedLWJGL(instance.minecraftVersion).version,
+                    uid = MetaUniqueID.LWJGL3.value
+                )),
+                cachedVersion = instance.minecraftVersion,
+                important = true,
+                uid = minecraftId,
+                version = instance.minecraftVersion
+            )
+        )
+
+        if (instance.fabricVersion != null) {
+            val instanceFabric = instance.fabricVersion!!
+            components.add(
+                Component(
+                    cachedName = "Intermediary Mappings",
+                    cachedRequires = listOf(CachedRequirement(
+                        equals = instance.minecraftVersion,
+                        uid = minecraftId
+                    )),
+                    cachedVersion = instanceFabric.intermediaryVersion,
+                    cachedVolatile = true,
+                    dependencyOnly = true,
+                    uid = MetaUniqueID.FABRIC_INTERMEDIARY.value,
+                    version = instanceFabric.intermediaryVersion
+                )
+            )
+            components.add(
+                Component(
+                    cachedName = "Fabric Loader",
+                    cachedRequires = listOf(CachedRequirement(uid = MetaUniqueID.FABRIC_INTERMEDIARY.value)),
+                    cachedVersion = instanceFabric.loaderVersion,
+                    uid = MetaUniqueID.FABRIC_LOADER.value,
+                    version = instanceFabric.loaderVersion
+                )
+            )
+        }
+
+        val mmcPack = MMCPackData(components)
+        return json.encodeToString(mmcPack)
+    }
+
+    private fun getSuggestedLWJGL(instanceVersion: String): MetaVersion {
+        val minecraftMetaVer = MetaManager.getVersions(MetaUniqueID.MINECRAFT).find { it.version == instanceVersion }!!
+        val lwjglRequire = minecraftMetaVer.requires.first()
+        val availableLWJGL = MetaManager.getVersions(lwjglRequire.uid)
+            .filter { it.version.toVersion(false) >= lwjglRequire.suggests?.toVersion(false )!! }
+            .sortedByDescending { it.version.toVersion(false) }
+
+        return availableLWJGL.first { it.version == lwjglRequire.suggests }
     }
 }
