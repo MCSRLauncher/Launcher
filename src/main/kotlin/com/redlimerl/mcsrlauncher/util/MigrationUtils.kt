@@ -9,6 +9,9 @@ import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import io.github.z4kn4fein.semver.toVersion
 import kotlinx.serialization.json.*
 import java.io.*
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.Properties
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -16,13 +19,21 @@ import java.util.zip.ZipOutputStream
 
 object MigrationUtils {
 
+    fun importingMMC(zipPath: String) : Boolean {
+        FileSystems.newFileSystem(Path.of(zipPath), emptyMap<String, Any>()).use { fs ->
+            Files.walk(fs.getPath("/")).use { paths ->
+                return paths.anyMatch { it.fileName?.toString() == "mmc-pack.json" }
+            }
+        }
+    }
+
     fun cfgReader(cfg : File) : Properties {
         val props = Properties()
         FileReader(cfg).use { props.load(it) }
         return props
     }
 
-    fun mmcPackReader(json : String) : JsonObject {
+    fun jsonReader(json : String) : JsonObject {
         return Json.parseToJsonElement(json).jsonObject
     }
 
@@ -113,7 +124,21 @@ object MigrationUtils {
                 .bufferedReader()
                 .use { it.readText() }
 
-            return mmcPackReader(json)
+            return jsonReader(json)
+        }
+    }
+
+    fun extractInstJSON(zipPath: String) : JsonObject {
+        ZipFile(zipPath).use { zip ->
+            val entry = zip.entries().asSequence()
+                .firstOrNull { !it.isDirectory && it.name.endsWith("instance.json") }
+                ?: error("Could not find instance.json in ZIP.")
+
+            val json = zip.getInputStream(entry)
+                .bufferedReader()
+                .use { it.readText() }
+
+            return jsonReader(json)
         }
     }
 
