@@ -96,6 +96,9 @@ class InstanceProcess(val instance: BasicInstance) {
         if (DeviceOSType.WINDOWS.isOn()) {
             arguments.add("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump")
         }
+        if (instance.draftoutFormat != null) {
+            arguments.add("-XX:StackShadowPages=32")
+        }
 
         arguments.addAll(instance.options.getSharedJavaValue { it.jvmArguments }.split(" ").flatMap { it.split("\n") }.filter { it.isNotBlank() })
 
