@@ -7,6 +7,7 @@ import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.data.instance.FabricVersionData
 import com.redlimerl.mcsrlauncher.data.instance.LWJGLVersionData
 import com.redlimerl.mcsrlauncher.data.instance.mcsrranked.MCSRRankedPackType
+import com.redlimerl.mcsrlauncher.util.LauncherWorker
 import kotlinx.serialization.SerializationException
 import java.io.File
 import java.nio.file.Path
@@ -70,7 +71,7 @@ object InstanceManager {
                 1 -> {
                     //Regen
                     for(instanceFolder in corruptedInstances) {
-                        val guessedConfig = BasicInstance.guessInstanceConfig(instanceFolder)
+                        val guessedConfig = BasicInstance.guessInstanceConfig(LauncherWorker.empty(), instanceFolder)
                         val configFile = instanceFolder.resolve("instance.json")
                         configFile.writeText(JSON.encodeToString(guessedConfig))
                         addInstance(guessedConfig, preload = true)
