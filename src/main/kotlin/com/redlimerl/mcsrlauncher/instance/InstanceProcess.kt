@@ -96,9 +96,6 @@ class InstanceProcess(val instance: BasicInstance) {
         if (DeviceOSType.WINDOWS.isOn()) {
             arguments.add("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump")
         }
-        if (instance.draftoutFormat != null) {
-            arguments.add("-XX:StackShadowPages=32")
-        }
 
         arguments.addAll(instance.options.getSharedJavaValue { it.jvmArguments }.split(" ").flatMap { it.split("\n") }.filter { it.isNotBlank() })
 
@@ -115,6 +112,9 @@ class InstanceProcess(val instance: BasicInstance) {
 
         if (minecraftMetaFile.traits.contains(LauncherTrait.FIRST_THREAD_MACOS) && DeviceOSType.MACOS.isOn()) {
             arguments.add("-XstartOnFirstThread")
+        }
+        if (minecraftMetaFile.traits.contains(LauncherTrait.STACK_SHADOW_PAGES_32)) {
+            arguments.add("-XX:StackShadowPages=32")
         }
 
         minecraftMetaFile.libraries.filter { it.shouldApply() }.forEach { libraryMap.add(it.toInstanceLibrary()) }
