@@ -24,6 +24,7 @@ data class LauncherOptions(
     override var maximumResolution: Boolean = false,
     override var resolutionWidth: Int = 854,
     override var resolutionHeight: Int = 480,
+    override var ninjaBrainBotPath: String = "",
 
     override var customGLFWPath: String = "",
     override var useSystemGLFW: Boolean = false,

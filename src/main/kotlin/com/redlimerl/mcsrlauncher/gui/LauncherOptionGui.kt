@@ -8,15 +8,20 @@ import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.util.I18n
+import com.redlimerl.mcsrlauncher.util.JavaUtils
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
 import com.redlimerl.mcsrlauncher.util.SwingUtils
 import com.redlimerl.mcsrlauncher.util.UpdaterUtils
 import java.awt.BorderLayout
 import java.awt.Dimension
+import java.io.File
+import java.nio.file.Paths
 import javax.swing.JDialog
+import javax.swing.JFileChooser
 import javax.swing.JFrame
 import javax.swing.JOptionPane
 import javax.swing.SpinnerNumberModel
+import javax.swing.filechooser.FileFilter
 import kotlin.math.min
 
 class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : LauncherOptionDialog(parent) {
@@ -99,6 +104,33 @@ class LauncherOptionGui(parent: JFrame, private val onDispose: () -> Unit) : Lau
         this.autoUpdateCheckBox.addActionListener {
             MCSRLauncher.options.autoUpdateCheck = !MCSRLauncher.options.autoUpdateCheck
             MCSRLauncher.options.save()
+        }
+
+        this.nbbPathPane.text = MCSRLauncher.options.ninjaBrainBotPath
+        this.nbbPathSelectButton.addActionListener {
+            val fileChooser = JFileChooser().apply {
+                dialogType = JFileChooser.CUSTOM_DIALOG
+                dialogTitle = I18n.translate("text.nbb.browse")
+                fileSelectionMode = JFileChooser.FILES_ONLY
+                fileFilter = object : FileFilter() {
+                    override fun accept(f: File): Boolean {
+                        return f.isDirectory || f.name.matches(Regex(""".*\.jar"""))
+                    }
+
+                    override fun getDescription(): String {
+                        return "*.jar"
+                    }
+                }
+            }
+            SwingUtils.makeEditablePathFileChooser(fileChooser)
+
+            val result = fileChooser.showDialog(this, I18n.translate("text.select"))
+
+            if (result == JFileChooser.APPROVE_OPTION) {
+                MCSRLauncher.options.ninjaBrainBotPath = fileChooser.selectedFile.absolutePath
+                MCSRLauncher.options.save()
+                this.nbbPathPane.text = fileChooser.selectedFile.absolutePath
+            }
         }
     }
 

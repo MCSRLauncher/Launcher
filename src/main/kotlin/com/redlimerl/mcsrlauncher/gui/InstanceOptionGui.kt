@@ -399,6 +399,12 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
             instance.save()
         }
 
+        ninjabrainbotCheckbox.isSelected = instance.options.autoNinjaBrainBotLaunch
+        ninjabrainbotCheckbox.addActionListener {
+            instance.options.autoNinjaBrainBotLaunch = ninjabrainbotCheckbox.isSelected
+            instance.save()
+        }
+
         loadToolscreen()
     }
 

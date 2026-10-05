@@ -20,4 +20,5 @@ interface LauncherSharedOptions {
     var disableGlThreadedOpt: Boolean
     var enableEnvironmentVariables: Boolean
     var environmentVariables: MutableMap<String, String>
+    var ninjaBrainBotPath: String
 }

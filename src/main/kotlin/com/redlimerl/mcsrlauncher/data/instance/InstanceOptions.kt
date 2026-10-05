@@ -15,6 +15,7 @@ data class InstanceOptions(
     var enableToolscreen: Boolean = false,
     var selectToolscreenVersion: String = "",
     var autoToolscreenUpdates: Boolean = true,
+    var autoNinjaBrainBotLaunch: Boolean = false,
 
     override var customGLFWPath: String = "",
     override var useSystemGLFW: Boolean = false,
@@ -35,7 +36,8 @@ data class InstanceOptions(
     override var jvmArguments: String = MCSRLauncher.options.jvmArguments,
     override var maximumResolution: Boolean = false,
     override var resolutionWidth: Int = 854,
-    override var resolutionHeight: Int = 480
+    override var resolutionHeight: Int = 480,
+    override var ninjaBrainBotPath: String = MCSRLauncher.options.ninjaBrainBotPath
 ) : LauncherSharedOptions {
 
     fun <T> getSharedJavaValue(sharedOptions: (LauncherSharedOptions) -> T): T {
