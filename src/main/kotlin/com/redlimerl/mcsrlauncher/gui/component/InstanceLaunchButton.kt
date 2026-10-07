@@ -2,6 +2,7 @@ package com.redlimerl.mcsrlauncher.gui.component
 
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.gui.CopyInstanceGui
+import com.redlimerl.mcsrlauncher.gui.ExportInstanceGui
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
@@ -83,6 +84,24 @@ class InstanceLaunchButton(private val windowParent: Window, val instance: Basic
                 CopyInstanceGui(windowParent, instance)
             }
         })
+
+        val exportMenu = JMenu(I18n.translate("text.export.instance"))
+        exportMenu.add(
+            JMenuItem(I18n.translate("MultiMC/Prism Launcher")).apply {
+                addActionListener{
+                    ExportInstanceGui(windowParent, instance, 1)
+                }
+            }
+        )
+        exportMenu.add(
+            JMenuItem(I18n.translate("MCSR Launcher")).apply {
+                addActionListener{
+                    ExportInstanceGui(windowParent, instance, 2)
+                }
+            }
+        )
+
+        popupMenu.add(exportMenu)
 
         popupMenu.add(JMenuItem(I18n.translate("instance.delete")).apply {
             addActionListener {
