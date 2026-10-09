@@ -15,6 +15,8 @@ data class InstanceOptions(
     var enableToolscreen: Boolean = false,
     var selectToolscreenVersion: String = "",
     var autoToolscreenUpdates: Boolean = true,
+    var enablePaceMan: Boolean = false,
+    var autoPaceManUpdates: Boolean = true,
 
     override var customGLFWPath: String = "",
     override var useSystemGLFW: Boolean = false,
