@@ -14,6 +14,7 @@ import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
 import com.redlimerl.mcsrlauncher.instance.mod.ModData
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
+import com.redlimerl.mcsrlauncher.launcher.PaceManManager
 import com.redlimerl.mcsrlauncher.util.*
 import io.github.z4kn4fein.semver.Version
 import org.apache.commons.io.FileUtils
@@ -400,6 +401,86 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
         }
 
         loadToolscreen()
+        loadPaceMan()
+    }
+
+    private fun loadPaceMan() {
+        pacemanCheckbox.isSelected = instance.options.enablePaceMan
+        pacemanConfigureButton.isEnabled = instance.options.enablePaceMan
+        pacemanCheckbox.addActionListener {
+            if (!pacemanCheckbox.isSelected) {
+                instance.options.enablePaceMan = false
+                pacemanConfigureButton.isEnabled = false
+                instance.save()
+                return@addActionListener
+            }
+
+            // check Already installed
+            if (PaceManManager.isDownloaded()) {
+                instance.options.enablePaceMan = true
+                pacemanConfigureButton.isEnabled = true
+                instance.save()
+                return@addActionListener
+            }
+
+            // Download the jar
+            object : LauncherWorker(this@InstanceOptionGui, I18n.translate("text.tool_toggle.paceman"), I18n.translate("message.loading") + "...") {
+                override fun work(dialog: JDialog) {
+                    PaceManManager.ensureInstalled(this, instance.options.autoPaceManUpdates)
+                    instance.options.enablePaceMan = true
+                    instance.save()
+                    SwingUtilities.invokeLater { pacemanConfigureButton.isEnabled = true }
+                    dialog.dispose()
+                }
+
+                override fun onError(e: Throwable) {
+                    SwingUtilities.invokeLater { pacemanCheckbox.isSelected = false }
+                    super.onError(e)
+                }
+            }.showDialog().start()
+        }
+
+        pacemanUpdateCheckbox.isSelected = instance.options.autoPaceManUpdates
+        pacemanUpdateCheckbox.addActionListener {
+            instance.options.autoPaceManUpdates = pacemanUpdateCheckbox.isSelected
+            instance.save()
+        }
+
+        fun openPaceManConfig() {
+            try {
+                PaceManManager.openConfigWindow(this@InstanceOptionGui)
+            } catch (e: Exception) {
+                MCSRLauncher.LOGGER.error("Failed to open paceman config", e)
+                JOptionPane.showMessageDialog(this@InstanceOptionGui, e.message, I18n.translate("text.error"), JOptionPane.ERROR_MESSAGE)
+            }
+        }
+
+        pacemanHomepage.isEnabled = false
+        object : LauncherWorker(this@InstanceOptionGui, I18n.translate("message.loading")) {
+            override fun work(dialog: JDialog) {
+                val program = PaceManManager.getProgramMeta(this)
+                if (program != null) {
+                    pacemanHomepage.isEnabled = true
+                    pacemanHomepage.addActionListener { OSUtils.openURI(URI.create(program.sources ?: program.downloadPage)) }
+                }
+                dialog.dispose()
+            }
+        }.start()
+
+        pacemanConfigureButton.addActionListener {
+            if (PaceManManager.isDownloaded()) {
+                openPaceManConfig()
+                return@addActionListener
+            }
+
+            object : LauncherWorker(this@InstanceOptionGui, I18n.translate("text.paceman.configure"), I18n.translate("message.loading") + "...") {
+                override fun work(dialog: JDialog) {
+                    PaceManManager.ensureInstalled(this, false)
+                    dialog.dispose()
+                    SwingUtilities.invokeLater { openPaceManConfig() }
+                }
+            }.showDialog().start()
+        }
     }
 
     private fun loadToolscreen() {
