@@ -25,6 +25,7 @@ import com.redlimerl.mcsrlauncher.instance.mod.ModData
 import com.redlimerl.mcsrlauncher.instance.mod.ModDownloadMethod
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
+import com.redlimerl.mcsrlauncher.launcher.PaceManManager
 import com.redlimerl.mcsrlauncher.network.FileDownloader
 import com.redlimerl.mcsrlauncher.util.*
 import io.github.z4kn4fein.semver.Version
@@ -211,6 +212,10 @@ data class BasicInstance(
                     }
                 }
             }
+        }
+
+        if (options.enablePaceMan) {
+            PaceManManager.ensureInstalled(worker, options.autoPaceManUpdates)
         }
     }
 
