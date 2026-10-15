@@ -11,6 +11,7 @@ import com.redlimerl.mcsrlauncher.instance.mod.ModCategory
 import com.redlimerl.mcsrlauncher.instance.mod.ModDownloadMethod
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.util.*
+import kotlinx.serialization.json.Json
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.io.File
@@ -158,12 +159,12 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                 DeviceOSType.WINDOWS -> ".minecraft"
                 else -> "minecraft"
             }
-            object : LauncherWorker(parent, I18n.translate("message.loading"), I18n.translate("message.migrating")) {
+            object : LauncherWorker(parent, I18n.translate("message.loading"), I18n.translate("message.migrating", instName)) {
                 override fun work(dialog: JDialog) {
                     newInstFolder.toFile().mkdirs()
                     folderPath?.resolve(prevMCFolder)?.toFile()?.copyRecursively(newInstFolder.resolve(newMCFolder).toFile())
                     val cfg = folderPath?.resolve("instance.cfg")?.toFile()?.let { MigrationUtils.cfgReader(it) }
-                    val mmcPack = folderPath?.resolve("mmc-pack.json")?.toFile()?.let { MigrationUtils.mmcPackReader(it.readText()) }
+                    val mmcPack = folderPath?.resolve("mmc-pack.json")?.toFile()?.let { MigrationUtils.jsonReader(it.readText()) }
                     val lwjglPatch = folderPath?.resolve(".minecraft")?.resolve("patches")?.resolve("org.lwjgl3.json")?.toFile()
                     var lwjglVerData = LWJGLVersionData(MetaUniqueID.LWJGL3, "3.2.2")
                     if (lwjglPatch?.exists() == true) {
@@ -213,43 +214,70 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
         object : LauncherWorker(parent, I18n.translate("message.loading"), I18n.translate("message.importing")) {
             override fun work(dialog: JDialog) {
                 MigrationUtils.importMinecraft(zipPath, newInstFolder.toString())
-                val cfg = MigrationUtils.extractCfg(zipPath)
-                val mmcPack = MigrationUtils.extractMMCPack(zipPath)
-                val lwjglVerData = MigrationUtils.getZIPLWJGL(zipPath)!!
 
-                val fabricVerData = MigrationUtils.getFabricVersion(mmcPack)
+                if (MigrationUtils.importingMMC(zipPath)) {
+                    val cfg = MigrationUtils.extractCfg(zipPath)
+                    val mmcPack = MigrationUtils.extractMMCPack(zipPath)
+                    val lwjglVerData = MigrationUtils.getZIPLWJGL(zipPath)!!
 
-                val instance = InstanceManager.createInstance(
-                    instName,
-                    null,
-                    MigrationUtils.getMinecraftVersion(mmcPack),
-                    lwjglVerData,
-                    fabricVerData,
-                    null,
-                    null
-                )
+                    val fabricVerData = MigrationUtils.getFabricVersion(mmcPack)
 
-                this@CreateInstanceGui.applyCfgProperties(instance, cfg)
-                this@CreateInstanceGui.dispose()
+                    val instance = InstanceManager.createInstance(
+                        instName,
+                        null,
+                        MigrationUtils.getMinecraftVersion(mmcPack),
+                        lwjglVerData,
+                        fabricVerData,
+                        null,
+                        null
+                    )
 
-                if (fabricVerData != null) {
-                    val autoUpdate = JOptionPane.showConfirmDialog(this@CreateInstanceGui, I18n.translate("message.auto_mod_update_ask"), I18n.translate("text.manage_speedrun_mods"), JOptionPane.YES_NO_OPTION)
-                    if (autoUpdate == JOptionPane.YES_OPTION) {
-                        instance.options.autoModUpdates = true
-                        instance.save()
+                    this@CreateInstanceGui.applyCfgProperties(instance, cfg)
+                    this@CreateInstanceGui.dispose()
+
+
+                    if (fabricVerData != null) {
+                        val autoUpdate = JOptionPane.showConfirmDialog(
+                            this@CreateInstanceGui,
+                            I18n.translate("message.auto_mod_update_ask"),
+                            I18n.translate("text.manage_speedrun_mods"),
+                            JOptionPane.YES_NO_OPTION
+                        )
+                        if (autoUpdate == JOptionPane.YES_OPTION) {
+                            instance.options.autoModUpdates = true
+                            instance.save()
+                        }
                     }
+                } else {
+                    val instJSON = MigrationUtils.extractInstJSON(zipPath)
+                    val config = Json.decodeFromString<BasicInstance>(instJSON.toString())
+
+                    val instance = InstanceManager.createInstance(
+                        instName,
+                        null,
+                        config.minecraftVersion,
+                        config.lwjglVersion,
+                        config.fabricVersion,
+                        config.mcsrRankedType,
+                        config.draftoutFormat
+                    )
+
+                    instance.options = config.options
+                    this@CreateInstanceGui.dispose()
                 }
             }
         }.showDialog().start()
     }
 
     private fun applyCfgProperties(instance: BasicInstance, cfg: Properties) {
-        cfg.getProperty("OverrideWindow")?.toBoolean()?.let { instance.options.useLauncherResolutionOption = it }
-        cfg.getProperty("OverrideJavaArgs")?.toBoolean()?.let { instance.options.useLauncherJavaOption = it }
+        cfg.getProperty("OverrideWindow")?.toBoolean()?.let { instance.options.useLauncherResolutionOption = !it }
+        cfg.getProperty("OverrideJavaArgs")?.toBoolean()?.let { instance.options.useLauncherJavaOption = !it }
         cfg.getProperty("JavaPath")?.toString()?.let { instance.options.javaPath = it }
         cfg.getProperty("JvmArgs")?.toString()?.let { instance.options.jvmArguments = it }
         cfg.getProperty("MaxMemAlloc")?.toInt()?.let { instance.options.maxMemory = it }
-        cfg.getProperty("MinMemAlloc")?.toInt()?.let { instance.options.maxMemory = it }
+        cfg.getProperty("MinMemAlloc")?.toInt()?.let { instance.options.minMemory = it }
+        cfg.getProperty("MinecraftWinHeight")?.toInt()?.let { instance.options.resolutionHeight = it }
+        cfg.getProperty("MinecraftWinWidth")?.toInt()?.let { instance.options.resolutionWidth = it }
     }
 
 }
