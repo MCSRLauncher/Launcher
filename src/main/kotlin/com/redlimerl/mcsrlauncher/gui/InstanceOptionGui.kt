@@ -110,7 +110,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
             instance.options.useLauncherResolutionOption = instanceResolutionCheckBox.isSelected
             instance.save()
         }
-        instanceResolutionCheckBox.isSelected = instance.options.useLauncherJavaOption
+        instanceResolutionCheckBox.isSelected = instance.options.useLauncherResolutionOption
         SwingUtils.setEnabledRecursively(resolutionSettingsPanel, !instanceResolutionCheckBox.isSelected)
 
         this.instanceResolutionPanel.layout = BorderLayout()
