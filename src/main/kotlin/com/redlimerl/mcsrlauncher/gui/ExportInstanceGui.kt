@@ -120,7 +120,7 @@ class ExportInstanceGui(parent: Window, instance: BasicInstance, type: Int) : Ex
                     }
                 }
 
-                object : LauncherWorker(this@ExportInstanceGui, I18n.translate("message.loading"), I18n.translate("message.exporting")) {
+                object : LauncherWorker(this@ExportInstanceGui, I18n.translate("message.loading"), I18n.translate("message.exporting", instance.id)) {
                     override fun work(dialog: JDialog) {
                         exportInstance(minecraftPath, saveLocation, selectedFiles, instance, type)
                         this@ExportInstanceGui.dispose()

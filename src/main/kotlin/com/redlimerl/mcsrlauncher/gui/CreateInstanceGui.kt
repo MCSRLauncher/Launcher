@@ -159,7 +159,7 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                 DeviceOSType.WINDOWS -> ".minecraft"
                 else -> "minecraft"
             }
-            object : LauncherWorker(parent, I18n.translate("message.loading"), I18n.translate("message.migrating")) {
+            object : LauncherWorker(parent, I18n.translate("message.loading"), I18n.translate("message.migrating", instName)) {
                 override fun work(dialog: JDialog) {
                     newInstFolder.toFile().mkdirs()
                     folderPath?.resolve(prevMCFolder)?.toFile()?.copyRecursively(newInstFolder.resolve(newMCFolder).toFile())
