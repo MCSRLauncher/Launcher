@@ -11,6 +11,7 @@ import com.redlimerl.mcsrlauncher.gui.component.LogViewerPanel
 import com.redlimerl.mcsrlauncher.launcher.AccountManager
 import com.redlimerl.mcsrlauncher.launcher.GameAssetManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
+import com.redlimerl.mcsrlauncher.launcher.PaceManManager
 import com.redlimerl.mcsrlauncher.util.AssetUtils
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
@@ -112,6 +113,9 @@ class InstanceProcess(val instance: BasicInstance) {
 
         if (minecraftMetaFile.traits.contains(LauncherTrait.FIRST_THREAD_MACOS) && DeviceOSType.MACOS.isOn()) {
             arguments.add("-XstartOnFirstThread")
+        }
+        if (minecraftMetaFile.traits.contains(LauncherTrait.STACK_SHADOW_PAGES_32)) {
+            arguments.add("-XX:StackShadowPages=32")
         }
 
         minecraftMetaFile.libraries.filter { it.shouldApply() }.forEach { libraryMap.add(it.toInstanceLibrary()) }
@@ -269,6 +273,17 @@ class InstanceProcess(val instance: BasicInstance) {
             }
         }
 
+        // Paceman Launch
+        if (instance.options.enablePaceMan) {
+            try {
+                if (PaceManManager.acquire(this)) addLog("PaceMan started.\n")
+                else addLog("PaceMan already running.\n")
+            } catch (e: Exception) {
+                MCSRLauncher.LOGGER.error("Failed to start PaceMan Tracker", e)
+                addLog("WARN: Failed to start PaceMan Tracker: ${e.message}\n")
+            }
+        }
+
         val finalLaunchArgs = mutableListOf<String>()
         if (enableFeralGamemode) finalLaunchArgs += "gamemoded"
         if (enableMangoHud) finalLaunchArgs += "mangohud"
@@ -295,7 +310,12 @@ class InstanceProcess(val instance: BasicInstance) {
                 .directory(instance.getGamePath().toFile())
                 .redirectErrorStream(true)
             pb.environment().putAll(environments)
-            val process = pb.start()
+            val process = try {
+                pb.start()
+            } catch (e: Exception) {
+                PaceManManager.release(this@InstanceProcess)
+                throw e
+            }
 
             launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
@@ -426,6 +446,7 @@ class InstanceProcess(val instance: BasicInstance) {
     @OptIn(DelicateCoroutinesApi::class)
     private fun onExit(code: Int) {
         MCSRLauncher.GAME_PROCESSES.remove(this)
+        PaceManManager.release(this)
         val processLog = synchronized(logArchive) { logArchive.joinToString("\n") }
         this.instance.onProcessExit(code, exitByUser, processLog)
 

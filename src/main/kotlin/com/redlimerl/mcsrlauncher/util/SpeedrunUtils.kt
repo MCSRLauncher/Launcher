@@ -20,7 +20,7 @@ object SpeedrunUtils {
         "1.7.10"
     )
 
-    val DRAFTOUT_MC_VERSION = "26.1.1"
+    val DRAFTOUT_MC_VERSION = "26.3"
 
     fun getLatestMCSRRankedVersion(worker: LauncherWorker): MCSRRankedVersionData? {
         worker.setState("Checking the latest version of MCSR Ranked")

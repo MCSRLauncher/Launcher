@@ -14,6 +14,7 @@ import com.redlimerl.mcsrlauncher.data.meta.file.SpeedrunToolsMetaFile
 import com.redlimerl.mcsrlauncher.data.meta.mod.SpeedrunModMeta
 import com.redlimerl.mcsrlauncher.data.meta.mod.SpeedrunModTrait
 import com.redlimerl.mcsrlauncher.data.meta.mod.SpeedrunModVersion
+import com.redlimerl.mcsrlauncher.gui.ChangeGameVersionGui
 import com.redlimerl.mcsrlauncher.gui.InstanceCrashLogGui
 import com.redlimerl.mcsrlauncher.gui.InstanceOptionGui
 import com.redlimerl.mcsrlauncher.gui.component.LogViewerPanel
@@ -24,6 +25,7 @@ import com.redlimerl.mcsrlauncher.instance.mod.ModData
 import com.redlimerl.mcsrlauncher.instance.mod.ModDownloadMethod
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
+import com.redlimerl.mcsrlauncher.launcher.PaceManManager
 import com.redlimerl.mcsrlauncher.network.FileDownloader
 import com.redlimerl.mcsrlauncher.util.*
 import io.github.z4kn4fein.semver.Version
@@ -211,6 +213,10 @@ data class BasicInstance(
                 }
             }
         }
+
+        if (options.enablePaceMan) {
+            PaceManManager.ensureInstalled(worker, options.autoPaceManUpdates)
+        }
     }
 
     fun launchInstance(worker: LauncherWorker) {
@@ -223,6 +229,12 @@ data class BasicInstance(
         if (this.isRunning()) return
         object : LauncherWorker(MCSRLauncher.MAIN_FRAME, I18n.translate("instance.launching"), I18n.translate("message.loading") + "...") {
             override fun work(dialog: JDialog) {
+                if (draftoutFormat != null && minecraftVersion != SpeedrunUtils.DRAFTOUT_MC_VERSION) {
+                    ChangeGameVersionGui(dialog, this@BasicInstance)
+                    if (minecraftVersion == SpeedrunUtils.DRAFTOUT_MC_VERSION) {
+                        getMods().forEach { mod -> mod.delete() }
+                    }
+                }
                 if (options.autoModUpdates) {
                     val updates = getSpeedRunModUpdates(this)
                     if (updates.isNotEmpty()) updateSpeedrunMods(this)
@@ -349,7 +361,7 @@ data class BasicInstance(
                         } else {
                             val modVersion = it.version.toVersionOrNull(false)
                             val newVersion = version.version.toVersionOrNull(false)
-                            if (modVersion == null || newVersion == null) false else modVersion < newVersion
+                            !(modVersion == null || newVersion == null) && modVersion < newVersion
                         }
             }
             if (canUpdate) list.add(mod to version)
