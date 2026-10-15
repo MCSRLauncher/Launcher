@@ -270,12 +270,14 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
     }
 
     private fun applyCfgProperties(instance: BasicInstance, cfg: Properties) {
-        cfg.getProperty("OverrideWindow")?.toBoolean()?.let { instance.options.useLauncherResolutionOption = it }
-        cfg.getProperty("OverrideJavaArgs")?.toBoolean()?.let { instance.options.useLauncherJavaOption = it }
+        cfg.getProperty("OverrideWindow")?.toBoolean()?.let { instance.options.useLauncherResolutionOption = !it }
+        cfg.getProperty("OverrideJavaArgs")?.toBoolean()?.let { instance.options.useLauncherJavaOption = !it }
         cfg.getProperty("JavaPath")?.toString()?.let { instance.options.javaPath = it }
         cfg.getProperty("JvmArgs")?.toString()?.let { instance.options.jvmArguments = it }
         cfg.getProperty("MaxMemAlloc")?.toInt()?.let { instance.options.maxMemory = it }
-        cfg.getProperty("MinMemAlloc")?.toInt()?.let { instance.options.maxMemory = it }
+        cfg.getProperty("MinMemAlloc")?.toInt()?.let { instance.options.minMemory = it }
+        cfg.getProperty("MinecraftWinHeight")?.toInt()?.let { instance.options.resolutionHeight = it }
+        cfg.getProperty("MinecraftWinWidth")?.toInt()?.let { instance.options.resolutionWidth = it }
     }
 
 }
