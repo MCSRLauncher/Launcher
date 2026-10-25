@@ -37,6 +37,8 @@ dependencies {
     implementation("com.miglayout:miglayout-swing:5.3")
 
     implementation("com.github.oshi:oshi-core:6.8.2")
+
+    implementation("org.jabref:mslinks:1.2")
 }
 
 kotlin {
