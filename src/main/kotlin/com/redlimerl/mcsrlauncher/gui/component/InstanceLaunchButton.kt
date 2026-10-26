@@ -3,6 +3,7 @@ package com.redlimerl.mcsrlauncher.gui.component
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.gui.CopyInstanceGui
 import com.redlimerl.mcsrlauncher.gui.ExportInstanceGui
+import com.redlimerl.mcsrlauncher.gui.InstanceShortcutGui
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
@@ -77,6 +78,12 @@ class InstanceLaunchButton(private val windowParent: Window, val instance: Basic
 
         popupMenu.add(JMenuItem(I18n.translate("text.open.dot_minecraft")).apply {
             addActionListener { Desktop.getDesktop().open(instance.getGamePath().toFile().apply { mkdirs() }) }
+        })
+
+        popupMenu.add(JMenuItem(I18n.translate("text.shortcut.create")).apply {
+            addActionListener {
+                InstanceShortcutGui(windowParent, instance)
+            }
         })
 
         popupMenu.add(JMenuItem(I18n.translate("text.copy.instance")).apply {
