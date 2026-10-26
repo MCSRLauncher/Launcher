@@ -1,8 +1,10 @@
 package com.redlimerl.mcsrlauncher.gui
 
+import com.redlimerl.mcsrlauncher.data.device.DeviceOSType
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.launcher.AccountManager
 import com.redlimerl.mcsrlauncher.util.I18n
+import com.redlimerl.mcsrlauncher.util.OSUtils
 import com.redlimerl.mcsrlauncher.util.ShortcutUtils
 import java.awt.Dimension
 import java.awt.Window
@@ -44,6 +46,9 @@ class InstanceShortcutGui(parent: Window, instance: BasicInstance) : InstanceSho
             override fun changedUpdate(e: DocumentEvent?) = updateButton()
             private fun updateButton() { createButton.isEnabled = shortcutTextField.text.isNotEmpty() }
         })
+
+        // default applications folder to let it show in app launchers, should maybe do prism-style dropdown box
+        if (OSUtils.getOSType() == DeviceOSType.LINUX) shortcutTextField.text = System.getProperty("user.home").plus("/.local/share/applications/${instance.id}.desktop")
 
         browseButton.addActionListener {
             val fileExt = ShortcutUtils.getShortcutExtension()
