@@ -3,6 +3,7 @@ package com.redlimerl.mcsrlauncher.gui.component
 import com.redlimerl.mcsrlauncher.data.instance.BasicInstance
 import com.redlimerl.mcsrlauncher.gui.CopyInstanceGui
 import com.redlimerl.mcsrlauncher.gui.ExportInstanceGui
+import com.redlimerl.mcsrlauncher.gui.InstanceIconGui
 import com.redlimerl.mcsrlauncher.gui.InstanceShortcutGui
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.util.I18n
@@ -22,7 +23,7 @@ class InstanceLaunchButton(private val windowParent: Window, val instance: Basic
         verticalTextPosition = SwingConstants.BOTTOM
         object : LauncherWorker() {
             override fun work(dialog: JDialog) {
-                icon = ImageIcon(ImageIcon(instance.getIconResource()).image.getScaledInstance(60, 60, Image.SCALE_SMOOTH))
+                icon = ImageIcon(instance.getIconResource().image.getScaledInstance(60, 60, Image.SCALE_SMOOTH))
             }
         }.start()
         iconTextGap = 6
@@ -79,6 +80,13 @@ class InstanceLaunchButton(private val windowParent: Window, val instance: Basic
         popupMenu.add(JMenuItem(I18n.translate("text.open.dot_minecraft")).apply {
             addActionListener { Desktop.getDesktop().open(instance.getGamePath().toFile().apply { mkdirs() }) }
         })
+
+        popupMenu.add(I18n.translate("icon.change")).apply {
+            addActionListener {
+                val iconGui = InstanceIconGui(windowParent)
+                if (iconGui.updatedIcon) InstanceManager.updateIcon(instance, iconGui.selectedIconKey)
+            }
+        }
 
         popupMenu.add(JMenuItem(I18n.translate("text.shortcut.create")).apply {
             addActionListener {

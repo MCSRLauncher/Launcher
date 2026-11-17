@@ -114,6 +114,7 @@ object InstanceManager {
         fabricVersion: FabricVersionData?,
         mcsrRankedPackType: MCSRRankedPackType?,
         draftoutFormat: Int?,
+        iconKey: String?,
     ): BasicInstance {
         return BasicInstance(
             getNewInstanceName(name),
@@ -123,7 +124,8 @@ object InstanceManager {
             lwjglVersion,
             fabricVersion,
             mcsrRankedPackType,
-            draftoutFormat
+            draftoutFormat,
+            iconKey = iconKey
         ).also { addInstance(it) }
     }
 
@@ -146,6 +148,12 @@ object InstanceManager {
 
         instances.getOrPut(group ?: DEFAULT_GROUP) { arrayListOf() }.add(instance)
         instance.group = group ?: DEFAULT_GROUP
+        instance.save()
+        refreshInstanceList()
+    }
+
+    fun updateIcon(instance: BasicInstance, iconKey: String) {
+        instance.iconKey = iconKey
         instance.save()
         refreshInstanceList()
     }

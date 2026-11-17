@@ -23,6 +23,7 @@ import com.redlimerl.mcsrlauncher.instance.LegacyLaunchFixer
 import com.redlimerl.mcsrlauncher.instance.mod.ModCategory
 import com.redlimerl.mcsrlauncher.instance.mod.ModData
 import com.redlimerl.mcsrlauncher.instance.mod.ModDownloadMethod
+import com.redlimerl.mcsrlauncher.launcher.IconManager
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.launcher.PaceManManager
@@ -42,7 +43,6 @@ import org.apache.commons.io.FileUtils
 import java.awt.Window
 import java.io.File
 import java.io.IOException
-import java.net.URL
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributeView
 import java.nio.file.attribute.BasicFileAttributes
@@ -50,6 +50,7 @@ import java.util.*
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import javax.swing.ImageIcon
 import javax.swing.JDialog
 import javax.swing.JOptionPane
 import kotlin.io.path.deleteIfExists
@@ -71,6 +72,7 @@ data class BasicInstance(
     var draftoutFormat: Int? = null,
     var options: InstanceOptions = InstanceOptions(),
     var playTime: Long = 0,
+    var iconKey: String?,
 ) {
     @Transient
     var optionDialog: InstanceOptionGui? = null
@@ -258,11 +260,8 @@ data class BasicInstance(
         return if (this.fabricVersion != null) "Fabric" else "Vanilla"
     }
 
-    fun getIconResource(): URL? {
-        return if (this.draftoutFormat != null) javaClass.getResource("/icons/draftout.png")
-            else if (this.mcsrRankedType != null) javaClass.getResource("/icons/mcsrranked.png")
-            else if (this.fabricVersion != null) javaClass.getResource("/icons/fabric.png")
-            else javaClass.getResource("/icons/minecraft.png")
+    fun getIconResource(): ImageIcon {
+        return IconManager.getIcon(this.iconKey, this)
     }
 
     fun isRunning(): Boolean {
@@ -596,6 +595,7 @@ data class BasicInstance(
                 null,
                 options,
                 playTime = 0,
+                iconKey = "default"
             )
         }
     }

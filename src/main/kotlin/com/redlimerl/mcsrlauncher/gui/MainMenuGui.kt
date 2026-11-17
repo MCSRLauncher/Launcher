@@ -6,6 +6,7 @@ import com.redlimerl.mcsrlauncher.gui.component.InstanceLaunchButton
 import com.redlimerl.mcsrlauncher.gui.layout.WrapLayout
 import com.redlimerl.mcsrlauncher.gui.listener.MouseFillListener
 import com.redlimerl.mcsrlauncher.launcher.AccountManager
+import com.redlimerl.mcsrlauncher.launcher.IconManager
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.util.I18n
 import com.redlimerl.mcsrlauncher.util.LauncherWorker
@@ -99,6 +100,7 @@ class MainMenuGui : MainForm() {
     }
 
     private fun initInstanceList() {
+        IconManager.scanDirectory()
         instanceScrollPane.border = BorderFactory.createEmptyBorder()
         SwingUtils.fasterScroll(instanceScrollPane)
         loadInstanceList()

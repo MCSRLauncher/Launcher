@@ -9,14 +9,17 @@ import com.redlimerl.mcsrlauncher.gui.component.GameVersionsPanel
 import com.redlimerl.mcsrlauncher.gui.component.InstanceGroupComboBox
 import com.redlimerl.mcsrlauncher.instance.mod.ModCategory
 import com.redlimerl.mcsrlauncher.instance.mod.ModDownloadMethod
+import com.redlimerl.mcsrlauncher.launcher.IconManager
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.util.*
 import kotlinx.serialization.json.Json
 import java.awt.BorderLayout
 import java.awt.Dimension
+import java.awt.Image
 import java.io.File
 import java.nio.file.Path
 import java.util.*
+import javax.swing.ImageIcon
 import javax.swing.JDialog
 import javax.swing.JFrame
 import javax.swing.JOptionPane
@@ -27,11 +30,21 @@ import kotlin.io.path.nameWithoutExtension
 class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
 
     private val gameVersionsPanel: GameVersionsPanel
+    private var iconKey = "default"
 
     init {
         title = I18n.translate("instance.new")
         minimumSize = Dimension(800, 550)
         setLocationRelativeTo(parent)
+
+        iconButton.icon = ImageIcon(ImageIcon(javaClass.getResource("/icons/fabric.png")).image.getScaledInstance(60, 60, Image.SCALE_SMOOTH))
+        iconButton.isFocusPainted = false
+
+        var iconGui: InstanceIconGui? = null
+        iconButton.addActionListener {
+            iconGui = InstanceIconGui(this)
+            if (iconGui!!.updatedIcon) updateInstanceIcon(iconGui)
+        }
 
         instanceNameField.text = I18n.translate("instance.new")
         InstanceGroupComboBox.init(instanceGroupBox)
@@ -44,22 +57,27 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
         versionsPanel.add(this.gameVersionsPanel, BorderLayout.CENTER)
 
         this.gameVersionsPanel.gameTabPane.addChangeListener {
-            if (this.gameVersionsPanel.gameTabPane.selectedIndex == 4) {
-                createInstanceButton.text = "Migrate Instance(s)"
-                for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(
-                    listener
-                )
-                createInstanceButton.addActionListener { this.migrateInstance(this.gameVersionsPanel.launcherTabPane.selectedIndex) }
-            } else if (this.gameVersionsPanel.gameTabPane.selectedIndex == 5) {
-                createInstanceButton.text = "Import Instance"
-                for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(
-                    listener
-                )
-                createInstanceButton.addActionListener { this.importInstance() }
-            } else {
-                createInstanceButton.text = I18n.translate("instance.create")
-                for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(listener)
-                createInstanceButton.addActionListener { this.createInstance() }
+            updateInstanceIcon(iconGui)
+            when (this.gameVersionsPanel.gameTabPane.selectedIndex) {
+                4 -> {
+                    createInstanceButton.text = "Migrate Instance(s)"
+                    for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(
+                        listener
+                    )
+                    createInstanceButton.addActionListener { this.migrateInstance(this.gameVersionsPanel.launcherTabPane.selectedIndex) }
+                }
+                5 -> {
+                    createInstanceButton.text = "Import Instance"
+                    for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(
+                        listener
+                    )
+                    createInstanceButton.addActionListener { this.importInstance() }
+                }
+                else -> {
+                    createInstanceButton.text = I18n.translate("instance.create")
+                    for (listener in createInstanceButton.actionListeners) createInstanceButton.removeActionListener(listener)
+                    createInstanceButton.addActionListener { this.createInstance() }
+                }
             }
         }
 
@@ -70,7 +88,7 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
     private fun createInstance() {
         if (instanceNameField.text.isNullOrBlank()) return
 
-        val instance = InstanceManager.createInstance(instanceNameField.text, instanceGroupBox.selectedItem?.toString()?.trimEnd(), gameVersionsPanel.getMinecraftVersion().version, gameVersionsPanel.getLWJGLVersion(), gameVersionsPanel.getFabricVersion(), gameVersionsPanel.getMCSRRankedPackType(), gameVersionsPanel.getDraftoutVersion())
+        val instance = InstanceManager.createInstance(instanceNameField.text, instanceGroupBox.selectedItem?.toString()?.trimEnd(), gameVersionsPanel.getMinecraftVersion().version, gameVersionsPanel.getLWJGLVersion(), gameVersionsPanel.getFabricVersion(), gameVersionsPanel.getMCSRRankedPackType(), gameVersionsPanel.getDraftoutVersion(), iconKey)
         val mcsrRankedPackType = instance.mcsrRankedType
 
         this.dispose()
@@ -179,6 +197,7 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                         lwjglVerData,
                         fabricVerData,
                         null,
+                        null,
                         null
                     )
 
@@ -229,6 +248,7 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                         lwjglVerData,
                         fabricVerData,
                         null,
+                        null,
                         null
                     )
 
@@ -259,7 +279,8 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
                         config.lwjglVersion,
                         config.fabricVersion,
                         config.mcsrRankedType,
-                        config.draftoutFormat
+                        config.draftoutFormat,
+                        config.iconKey
                     )
 
                     instance.options = config.options
@@ -280,4 +301,26 @@ class CreateInstanceGui(parent: JFrame) : CreateInstanceDialog(parent) {
         cfg.getProperty("MinecraftWinWidth")?.toInt()?.let { instance.options.resolutionWidth = it }
     }
 
+    private fun updateInstanceIcon(iconGui: InstanceIconGui?) {
+        if (iconGui == null || !iconGui.updatedIcon) {
+            when (this.gameVersionsPanel.gameTabPane.selectedIndex) {
+                0 -> {
+                    iconButton.icon = ImageIcon(ImageIcon(javaClass.getResource("/icons/fabric.png")).image.getScaledInstance(60, 60, Image.SCALE_SMOOTH))
+                }
+                2 -> {
+                    iconButton.icon = ImageIcon(ImageIcon(javaClass.getResource("/icons/mcsrranked.png")).image.getScaledInstance(60, 60, Image.SCALE_SMOOTH))
+                }
+                3 -> {
+                    iconButton.icon = ImageIcon(ImageIcon(javaClass.getResource("/icons/draftout.png")).image.getScaledInstance(60, 60, Image.SCALE_SMOOTH))
+                }
+                else -> {
+                    iconButton.icon = ImageIcon(ImageIcon(javaClass.getResource("/icons/minecraft.png")).image.getScaledInstance(60, 60, Image.SCALE_SMOOTH))
+                }
+            }
+        }
+        else {
+            iconKey = iconGui.selectedIconKey
+            iconButton.icon = IconManager.getIcon(iconGui.selectedIconKey, null)
+        }
+    }
 }

@@ -12,6 +12,7 @@ import com.redlimerl.mcsrlauncher.gui.component.JavaSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.ResolutionSettingsPanel
 import com.redlimerl.mcsrlauncher.gui.component.WorkaroundSettingsPanel
 import com.redlimerl.mcsrlauncher.instance.mod.ModData
+import com.redlimerl.mcsrlauncher.launcher.IconManager
 import com.redlimerl.mcsrlauncher.launcher.InstanceManager
 import com.redlimerl.mcsrlauncher.launcher.MetaManager
 import com.redlimerl.mcsrlauncher.launcher.PaceManManager
@@ -89,6 +90,22 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
         InstanceGroupComboBox.init(instanceGroupField)
         instanceGroupField.selectedItem = InstanceManager.getInstanceGroup(instance)
 
+        object : LauncherWorker() {
+            override fun work(dialog: JDialog) {
+                val newIcon = ImageIcon(instance.getIconResource().image.getScaledInstance(60, 60, Image.SCALE_SMOOTH))
+                SwingUtilities.invokeLater {
+                    this@InstanceOptionGui.instanceIconButton.icon = newIcon
+                }
+            }
+        }.start()
+        instanceIconButton.isFocusPainted = false
+
+        var iconGui: InstanceIconGui? = null
+        instanceIconButton.addActionListener {
+            iconGui = InstanceIconGui(this)
+            if (iconGui!!.updatedIcon) instanceIconButton.icon = IconManager.getIcon(iconGui!!.selectedIconKey, null)
+        }
+
         instanceApplyChangesButton.addActionListener {
             if (instanceNameField.text != instance.displayName) {
                 InstanceManager.renameInstance(instance, instanceNameField.text)
@@ -96,6 +113,9 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
             }
             if (instanceGroupField.selectedItem?.toString() != InstanceManager.getInstanceGroup(instance)) {
                 InstanceManager.moveInstanceGroup(instance, instanceGroupField.selectedItem as String)
+            }
+            if (iconGui != null && iconGui!!.updatedIcon) {
+                InstanceManager.updateIcon(instance, iconGui!!.selectedIconKey)
             }
         }
         launchBlockComponents.add(instanceApplyChangesButton)

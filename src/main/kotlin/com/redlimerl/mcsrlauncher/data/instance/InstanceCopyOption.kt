@@ -14,7 +14,7 @@ data class InstanceCopyOption(
     var playTime: Boolean = false
 ) {
     fun copyInstance(instanceName: String, instanceGroup: String?, baseInstance: BasicInstance, worker: LauncherWorker) {
-        val newInstance = InstanceManager.createInstance(instanceName, instanceGroup, baseInstance.minecraftVersion, baseInstance.lwjglVersion.copy(), baseInstance.fabricVersion?.copy(), baseInstance.mcsrRankedType, baseInstance.draftoutFormat)
+        val newInstance = InstanceManager.createInstance(instanceName, instanceGroup, baseInstance.minecraftVersion, baseInstance.lwjglVersion.copy(), baseInstance.fabricVersion?.copy(), baseInstance.mcsrRankedType, baseInstance.draftoutFormat, baseInstance.iconKey)
 
         if (worlds) {
             worker.setSubText(I18n.translate("text.copy.worlds.progress"))
