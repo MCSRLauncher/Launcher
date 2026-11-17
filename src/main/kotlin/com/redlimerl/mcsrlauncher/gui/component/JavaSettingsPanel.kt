@@ -83,6 +83,8 @@ class JavaSettingsPanel(parent: JDialog, val options: LauncherSharedOptions, pri
 
 
         this.jvmArgumentArea.text = options.jvmArguments
+        this.jvmArgumentArea.lineWrap = true
+        this.jvmArgumentArea.wrapStyleWord = true
         this.jvmArgumentArea.addFocusListener(object : FocusListener {
             override fun focusGained(e: FocusEvent?) {}
             override fun focusLost(e: FocusEvent?) {
