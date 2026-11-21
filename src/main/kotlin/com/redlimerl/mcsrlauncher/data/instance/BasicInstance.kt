@@ -72,7 +72,7 @@ data class BasicInstance(
     var draftoutFormat: Int? = null,
     var options: InstanceOptions = InstanceOptions(),
     var playTime: Long = 0,
-    var iconKey: String?,
+    var iconKey: String? = null,
 ) {
     @Transient
     var optionDialog: InstanceOptionGui? = null
