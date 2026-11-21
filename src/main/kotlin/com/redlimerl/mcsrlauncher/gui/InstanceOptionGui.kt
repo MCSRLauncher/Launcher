@@ -103,7 +103,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
         var iconGui: InstanceIconGui? = null
         instanceIconButton.addActionListener {
             iconGui = InstanceIconGui(this)
-            if (iconGui!!.updatedIcon) instanceIconButton.icon = IconManager.getIcon(iconGui!!.selectedIconKey, null)
+            if (iconGui.updatedIcon) instanceIconButton.icon = IconManager.getIcon(iconGui.selectedIconKey, null)
         }
 
         instanceApplyChangesButton.addActionListener {
@@ -114,8 +114,8 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
             if (instanceGroupField.selectedItem?.toString() != InstanceManager.getInstanceGroup(instance)) {
                 InstanceManager.moveInstanceGroup(instance, instanceGroupField.selectedItem as String)
             }
-            if (iconGui != null && iconGui!!.updatedIcon) {
-                InstanceManager.updateIcon(instance, iconGui!!.selectedIconKey)
+            if (iconGui != null && iconGui.updatedIcon) {
+                InstanceManager.updateIcon(instance, iconGui.selectedIconKey)
             }
         }
         launchBlockComponents.add(instanceApplyChangesButton)
@@ -510,7 +510,7 @@ class InstanceOptionGui(parent: Window, private val instance: BasicInstance) : I
         toolscreenUpdateCheckbox.isEnabled = false
         object : LauncherWorker(this@InstanceOptionGui, I18n.translate("message.loading")) {
             override fun work(dialog: JDialog) {
-                val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen", this)
+                val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen_exe", this)
                 if (toolscreenMeta != null) {
                     fun applyToolscreenFile() {
                         val oldSelect = instance.options.selectToolscreenVersion

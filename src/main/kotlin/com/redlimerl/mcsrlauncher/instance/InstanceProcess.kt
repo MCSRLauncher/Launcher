@@ -241,7 +241,7 @@ class InstanceProcess(val instance: BasicInstance) {
 
         // Toolscreen Launch
         if (instance.options.enableToolscreen && instance.options.selectToolscreenVersion.isNotBlank()) {
-            val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen", worker)
+            val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen_exe", worker)
             val toolscreenFile = instance.getToolscreenFile()
             if (toolscreenMeta != null && toolscreenFile != null && toolscreenMeta.tool.shouldApply()) {
                 for (version in toolscreenMeta.tool.versions.filter { it.version.startsWith("v") }
@@ -253,7 +253,7 @@ class InstanceProcess(val instance: BasicInstance) {
                             GlobalScope.launch {
                                 addLog("Running Toolscreen...")
                                 try {
-                                    val process = ProcessBuilder(listOf(javaContainer.path.absolutePathString(), "-jar", toolscreenFile.absolutePath))
+                                    val process = ProcessBuilder(toolscreenFile.absolutePath)
                                         .directory(instance.getInstancePath().toFile())
                                         .redirectErrorStream(true)
                                         .inheritIO()

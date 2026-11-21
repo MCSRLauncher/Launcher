@@ -197,7 +197,7 @@ data class BasicInstance(
         MCSRLauncher.LOGGER.info("Installed all game files and libraries!")
 
         if (options.enableToolscreen && (options.selectToolscreenVersion.isNotBlank() || options.autoToolscreenUpdates)) {
-            val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen", worker)
+            val toolscreenMeta = MetaManager.getVersionMeta<SpeedrunToolsMetaFile>(MetaUniqueID.SPEEDRUN_TOOLS, "toolscreen_exe", worker)
             val toolscreenFile = getToolscreenFile()
             if (toolscreenMeta != null && toolscreenFile != null && toolscreenMeta.tool.shouldApply()) {
                 for (version in toolscreenMeta.tool.versions.filter { it.version.startsWith("v") }
